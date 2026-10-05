@@ -1,15 +1,17 @@
 {
   "expo": {
-    "name": "workspace_claude",
-    "slug": "workspace_claude",
+    "name": "먹고싶콜",
+    "slug": "mukgosipcall",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yiseulpark.mukgosipcall"
     },
     "android": {
+      "package": "com.yiseulpark.mukgosipcall",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
