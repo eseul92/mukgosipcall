@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import ConfirmDialog from './ConfirmDialog';
 
 type Props = {
   ingredients: string[];
@@ -65,32 +66,16 @@ export default function IngredientSection({ ingredients, onAdd, onRemove }: Prop
         </View>
       )}
 
-      <Modal
+      <ConfirmDialog
         visible={pendingDelete !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPendingDelete(null)}
-      >
-        <View style={styles.dialogOverlay}>
-          <View style={styles.dialog}>
-            <Text style={styles.dialogTitle}>{pendingDelete} 삭제할까요?</Text>
-            <View style={styles.dialogButtons}>
-              <Pressable style={styles.dialogButton} onPress={() => setPendingDelete(null)}>
-                <Text style={styles.dialogCancel}>취소</Text>
-              </Pressable>
-              <Pressable
-                style={styles.dialogButton}
-                onPress={() => {
-                  if (pendingDelete) onRemove(pendingDelete);
-                  setPendingDelete(null);
-                }}
-              >
-                <Text style={styles.dialogDelete}>삭제</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        title={`${pendingDelete} 삭제할까요?`}
+        confirmLabel="삭제"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) onRemove(pendingDelete);
+          setPendingDelete(null);
+        }}
+      />
     </View>
   );
 }
@@ -160,43 +145,5 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
-  },
-  dialogOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  dialog: {
-    width: '100%',
-    maxWidth: 320,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-  },
-  dialogTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#111',
-  },
-  dialogButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 20,
-  },
-  dialogButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  dialogCancel: {
-    fontSize: 15,
-    color: '#6B7280',
-  },
-  dialogDelete: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#EF4444',
   },
 });

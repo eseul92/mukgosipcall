@@ -78,6 +78,45 @@ export const RECENT_CALLS: RecentCall[] = [
     mealType: '만들어줘',
     responses: [{ by: '엄마', value: 'cook' }],
   },
+  {
+    id: '4',
+    sender: ME,
+    message: '떡볶이 시켜먹자',
+    time: '2일 전',
+    menu: '떡볶이',
+    mealType: '시켜먹자',
+    source: 'frequent',
+    responses: [
+      { by: '엄마', value: 'eatout' },
+      { by: '아빠', value: 'later' },
+    ],
+  },
+  {
+    id: '5',
+    sender: '아빠',
+    message: '삼겹살 사먹자',
+    time: '3일 전',
+    menu: '삼겹살',
+    mealType: '사먹자',
+    responses: [{ by: ME, value: 'eatout' }],
+  },
+];
+
+export const FAMILY = {
+  name: '우리 가족',
+  inviteCode: '482916',
+};
+
+export type Member = {
+  id: string;
+  name: string;
+  isOwner?: boolean;
+};
+
+export const MEMBERS: Member[] = [
+  { id: '1', name: '엄마', isOwner: true },
+  { id: '2', name: '아빠' },
+  { id: '3', name: ME },
 ];
 
 export type Recipe = {

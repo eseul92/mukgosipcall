@@ -1,14 +1,18 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ConfirmDialog from '../components/ConfirmDialog';
 import IngredientSection from '../components/IngredientSection';
 import LoginPromptSheet from '../components/LoginPromptSheet';
 import Toast from '../components/Toast';
 import { useAppData } from '../context/AppDataContext';
 import { useAuth } from '../context/AuthContext';
 import { ME, REPLY_LABELS } from '../data/dummy';
+import useToast from '../hooks/useToast';
+
+const RECENT_COUNT = 3;
 
 type Action = 'sendCall' | 'respond';
 
@@ -25,24 +29,17 @@ const PROMPTS: Record<Action, { title: string; description: string }> = {
 
 export default function HomeScreen() {
   const { isGuest, signIn } = useAuth();
-  const { ingredients, addIngredient, removeIngredient, calls } = useAppData();
+  const { ingredients, addIngredient, removeIngredient, calls, hasFamily } = useAppData();
+  const [needFamily, setNeedFamily] = useState(false);
   const [promptFor, setPromptFor] = useState<Action | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  useEffect(() => () => clearTimeout(toastTimer.current), []);
-
-  const showToast = (message: string) => {
-    clearTimeout(toastTimer.current);
-    setToast(message);
-    toastTimer.current = setTimeout(() => setToast(null), 1800);
-  };
+  const { message: toast, show: showToast } = useToast();
 
   const run = (action: Action, callId?: string) => {
     if (isGuest) {
       setPromptFor(action);
     } else if (action === 'sendCall') {
-      router.push('/call');
+      if (hasFamily) router.push('/call');
+      else setNeedFamily(true);
     } else {
       router.push({ pathname: '/respond', params: { callId } });
     }
@@ -101,51 +98,77 @@ export default function HomeScreen() {
 
         <View>
           <Text style={styles.sectionTitle}>가족 최근 콜</Text>
-          <View style={styles.calls}>
-            {calls.map((call) => (
-              <View key={call.id} style={styles.callRow}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{call.sender.charAt(0)}</Text>
-                </View>
-                <View style={styles.callBody}>
-                  <Text style={styles.callMessage} numberOfLines={2}>
-                    {call.message}
-                  </Text>
-                  {call.memo ? <Text style={styles.callMemo}>{call.memo}</Text> : null}
-                  <Text style={styles.callTime}>
-                    {call.sender} · {call.time}
-                  </Text>
-                  {call.responses?.length ? (
-                    <View style={styles.responses}>
-                      {call.responses.map((r) => (
-                        <View key={r.by} style={styles.responseBadge}>
-                          <View style={styles.responseAvatar}>
-                            <Text style={styles.responseAvatarText}>{r.by.charAt(0)}</Text>
-                          </View>
-                          <Text style={styles.responseText}>{REPLY_LABELS[r.value]}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-                {call.sender !== ME && (
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => run('respond', call.id)}
-                    style={({ pressed }) => [styles.respondButton, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.respondText}>
-                      {call.responses?.some((r) => r.by === ME) ? '응답 수정' : '응답하기'}
+          {!hasFamily ? (
+            <View style={styles.noFamily}>
+              <Text style={styles.noFamilyText}>가족과 연결하면 최근 콜을 볼 수 있어요</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/family-connect')}
+                style={({ pressed }) => [styles.respondButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.respondText}>가족 연결하기</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.calls}>
+              {calls.slice(0, RECENT_COUNT).map((call) => (
+                <View key={call.id} style={styles.callRow}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{call.sender.charAt(0)}</Text>
+                  </View>
+                  <View style={styles.callBody}>
+                    <Text style={styles.callMessage} numberOfLines={2}>
+                      {call.message}
                     </Text>
-                  </Pressable>
-                )}
-              </View>
-            ))}
-          </View>
+                    {call.memo ? <Text style={styles.callMemo}>{call.memo}</Text> : null}
+                    <Text style={styles.callTime}>
+                      {call.sender} · {call.time}
+                    </Text>
+                    {call.responses?.length ? (
+                      <View style={styles.responses}>
+                        {call.responses.map((r) => (
+                          <View key={r.by} style={styles.responseBadge}>
+                            <View style={styles.responseAvatar}>
+                              <Text style={styles.responseAvatarText}>{r.by.charAt(0)}</Text>
+                            </View>
+                            <Text style={styles.responseText}>{REPLY_LABELS[r.value]}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                  {call.sender !== ME && (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => run('respond', call.id)}
+                      style={({ pressed }) => [styles.respondButton, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.respondText}>
+                        {call.responses?.some((r) => r.by === ME) ? '응답 수정' : '응답하기'}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
 
       <Toast message={toast} />
+
+      <ConfirmDialog
+        visible={needFamily}
+        title="가족과 연결해야 콜을 보낼 수 있어요"
+        message="초대 코드를 입력해 가족과 먼저 연결해주세요."
+        confirmLabel="가족 연결하기"
+        destructive={false}
+        onCancel={() => setNeedFamily(false)}
+        onConfirm={() => {
+          setNeedFamily(false);
+          router.push('/family-connect');
+        }}
+      />
 
       <LoginPromptSheet
         visible={prompt !== null}
@@ -263,6 +286,14 @@ const styles = StyleSheet.create({
   callTime: {
     marginTop: 2,
     fontSize: 13,
+    color: '#6B7280',
+  },
+  noFamily: {
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  noFamilyText: {
+    fontSize: 15,
     color: '#6B7280',
   },
   responses: {

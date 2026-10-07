@@ -8,6 +8,9 @@ type AppDataValue = {
   calls: RecentCall[];
   addCall: (call: Omit<RecentCall, 'id' | 'time'>) => void;
   respondToCall: (callId: string, by: string, value: Reply) => void;
+  hasFamily: boolean;
+  joinFamily: () => void;
+  leaveFamily: () => void;
 };
 
 const AppDataContext = createContext<AppDataValue | null>(null);
@@ -16,6 +19,9 @@ const AppDataContext = createContext<AppDataValue | null>(null);
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const [ingredients, setIngredients] = useState(INITIAL_INGREDIENTS);
   const [calls, setCalls] = useState(RECENT_CALLS);
+  const [hasFamily, setHasFamily] = useState(true);
+  const joinFamily = useCallback(() => setHasFamily(true), []);
+  const leaveFamily = useCallback(() => setHasFamily(false), []);
 
   const addIngredient = useCallback(
     (name: string) => setIngredients((prev) => (prev.includes(name) ? prev : [...prev, name])),
@@ -48,8 +54,28 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ ingredients, addIngredient, removeIngredient, calls, addCall, respondToCall }),
-    [ingredients, addIngredient, removeIngredient, calls, addCall, respondToCall],
+    () => ({
+      ingredients,
+      addIngredient,
+      removeIngredient,
+      calls,
+      addCall,
+      respondToCall,
+      hasFamily,
+      joinFamily,
+      leaveFamily,
+    }),
+    [
+      ingredients,
+      addIngredient,
+      removeIngredient,
+      calls,
+      addCall,
+      respondToCall,
+      hasFamily,
+      joinFamily,
+      leaveFamily,
+    ],
   );
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;

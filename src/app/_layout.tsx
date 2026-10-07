@@ -30,6 +30,10 @@ function RootStack() {
           name="respond"
           options={{ headerShown: true, title: '콜 응답', headerBackTitle: '홈' }}
         />
+        <Stack.Screen
+          name="family-connect"
+          options={{ headerShown: true, title: '가족 연결', headerBackTitle: '가족' }}
+        />
       </Stack.Protected>
     </Stack>
   );

@@ -1,5 +1,3 @@
-import { View } from 'react-native';
+import FamilyScreen from '../../../screens/FamilyScreen';
 
-export default function FamilyTab() {
-  return <View style={{ flex: 1, backgroundColor: '#fff' }} />;
-}
+export default FamilyScreen;
