@@ -31,6 +31,13 @@
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "@react-native-google-signin/google-signin"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a9f43424-ced3-42d0-8da6-6f63459102e3"
+      }
+    },
+    "owner": "yiseul-park"
   }
 }
