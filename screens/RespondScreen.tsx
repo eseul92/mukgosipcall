@@ -1,13 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useAppData } from '../context/AppDataContext';
-import { ME, REPLY_LABELS, Reply } from '../data/dummy';
-
-const REPLIES = Object.keys(REPLY_LABELS) as Reply[];
+import { REPLIES, REPLY_LABELS } from '../constants/call';
+import { useFamilyData } from '../context/FamilyDataContext';
+import type { Reply } from '../types/models';
+import { formatRelativeTime } from '../utils/time';
 
 export default function RespondScreen() {
   const { callId } = useLocalSearchParams<{ callId?: string }>();
-  const { calls, respondToCall } = useAppData();
+  const { calls, respondToCall, getMemberName } = useFamilyData();
   const call = calls.find((c) => c.id === callId);
 
   if (!call) {
@@ -18,20 +18,22 @@ export default function RespondScreen() {
     );
   }
 
-  const reply = (value: Reply) => {
-    respondToCall(call.id, ME, value);
+  const reply = async (value: Reply) => {
+    await respondToCall(call.id, value);
     router.back();
   };
+
+  const senderName = getMemberName(call.senderId);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.callCard}>
         <View style={styles.senderRow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{call.sender.charAt(0)}</Text>
+            <Text style={styles.avatarText}>{senderName.charAt(0)}</Text>
           </View>
-          <Text style={styles.sender}>{call.sender}</Text>
-          <Text style={styles.time}>{call.time}</Text>
+          <Text style={styles.sender}>{senderName}</Text>
+          <Text style={styles.time}>{formatRelativeTime(call.createdAt)}</Text>
         </View>
         <Text style={styles.menu}>{call.menu}</Text>
         <Text style={styles.mealType}>{call.mealType}</Text>

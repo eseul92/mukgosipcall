@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { RECIPES } from '../data/dummy';
+import { RECIPES } from '../data/recipes';
 
 export default function RecipesScreen() {
   const { ingredients } = useLocalSearchParams<{ ingredients?: string }>();

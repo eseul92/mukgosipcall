@@ -1,14 +1,15 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useAppData } from '../context/AppDataContext';
-import { CallSource, ME, MEAL_TYPES, MEMO_PRESETS, MealType } from '../data/dummy';
+import { MEAL_TYPES, MEMO_PRESETS } from '../constants/call';
+import { useFamilyData } from '../context/FamilyDataContext';
+import type { CallSource, MealType } from '../types/models';
 
 const SOURCES: CallSource[] = ['recommended', 'frequent', 'custom'];
 
 export default function CallConfirmScreen() {
   const { menu, source } = useLocalSearchParams<{ menu?: string; source?: string }>();
-  const { addCall } = useAppData();
+  const { sendCall } = useFamilyData();
   const [mealType, setMealType] = useState<MealType>(MEAL_TYPES[0]);
   const [memo, setMemo] = useState('');
 
@@ -21,15 +22,12 @@ export default function CallConfirmScreen() {
         : `${prev.trim()} ${preset}`.trim(),
     );
 
-  const send = () => {
+  const send = async () => {
     if (!menu) return;
-    const trimmedMemo = memo.trim();
-    addCall({
-      sender: ME,
-      message: `${menu} ${mealType}`,
+    await sendCall({
       menu,
       mealType,
-      memo: trimmedMemo || undefined,
+      memo: memo.trim() || undefined,
       source: callSource,
     });
     router.dismissTo('/');

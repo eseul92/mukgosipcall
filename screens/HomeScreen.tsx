@@ -7,14 +7,15 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import IngredientSection from '../components/IngredientSection';
 import LoginPromptSheet from '../components/LoginPromptSheet';
 import Toast from '../components/Toast';
-import { useAppData } from '../context/AppDataContext';
+import { REPLY_LABELS } from '../constants/call';
 import { useAuth } from '../context/AuthContext';
-import { ME, REPLY_LABELS } from '../data/dummy';
+import { useFamilyData } from '../context/FamilyDataContext';
 import useToast from '../hooks/useToast';
+import { formatRelativeTime } from '../utils/time';
 
 const RECENT_COUNT = 3;
 
-type Action = 'sendCall' | 'respond';
+type Action = 'sendCall' | 'respond' | 'connectFamily';
 
 const PROMPTS: Record<Action, { title: string; description: string }> = {
   sendCall: {
@@ -25,11 +26,16 @@ const PROMPTS: Record<Action, { title: string; description: string }> = {
     title: '콜에 응답하려면 로그인이 필요해요',
     description: '로그인하면 가족의 콜에 바로 답장할 수 있어요.',
   },
+  connectFamily: {
+    title: '가족과 연결하려면 로그인이 필요해요',
+    description: '로그인하면 가족을 초대하고 함께 먹을 메뉴를 정할 수 있어요.',
+  },
 };
 
 export default function HomeScreen() {
   const { isGuest, signIn } = useAuth();
-  const { ingredients, addIngredient, removeIngredient, calls, hasFamily } = useAppData();
+  const { user, ingredients, addIngredient, removeIngredient, calls, hasFamily, getMemberName } =
+    useFamilyData();
   const [needFamily, setNeedFamily] = useState(false);
   const [promptFor, setPromptFor] = useState<Action | null>(null);
   const { message: toast, show: showToast } = useToast();
@@ -40,6 +46,8 @@ export default function HomeScreen() {
     } else if (action === 'sendCall') {
       if (hasFamily) router.push('/call');
       else setNeedFamily(true);
+    } else if (action === 'connectFamily') {
+      router.push('/family-connect');
     } else {
       router.push({ pathname: '/respond', params: { callId } });
     }
@@ -89,7 +97,10 @@ export default function HomeScreen() {
         <Pressable
           accessibilityRole="button"
           onPress={() =>
-            router.push({ pathname: '/recipes', params: { ingredients: ingredients.join(',') } })
+            router.push({
+              pathname: '/recipes',
+              params: { ingredients: ingredients.map((item) => item.name).join(',') },
+            })
           }
           style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
         >
@@ -98,12 +109,12 @@ export default function HomeScreen() {
 
         <View>
           <Text style={styles.sectionTitle}>가족 최근 콜</Text>
-          {!hasFamily ? (
+          {isGuest || !hasFamily ? (
             <View style={styles.noFamily}>
               <Text style={styles.noFamilyText}>가족과 연결하면 최근 콜을 볼 수 있어요</Text>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => router.push('/family-connect')}
+                onPress={() => run('connectFamily')}
                 style={({ pressed }) => [styles.respondButton, pressed && styles.pressed]}
               >
                 <Text style={styles.respondText}>가족 연결하기</Text>
@@ -114,22 +125,24 @@ export default function HomeScreen() {
               {calls.slice(0, RECENT_COUNT).map((call) => (
                 <View key={call.id} style={styles.callRow}>
                   <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{call.sender.charAt(0)}</Text>
+                    <Text style={styles.avatarText}>{getMemberName(call.senderId).charAt(0)}</Text>
                   </View>
                   <View style={styles.callBody}>
                     <Text style={styles.callMessage} numberOfLines={2}>
-                      {call.message}
+                      {call.menu} {call.mealType}
                     </Text>
                     {call.memo ? <Text style={styles.callMemo}>{call.memo}</Text> : null}
                     <Text style={styles.callTime}>
-                      {call.sender} · {call.time}
+                      {getMemberName(call.senderId)} · {formatRelativeTime(call.createdAt)}
                     </Text>
-                    {call.responses?.length ? (
+                    {call.responses.length > 0 ? (
                       <View style={styles.responses}>
                         {call.responses.map((r) => (
-                          <View key={r.by} style={styles.responseBadge}>
+                          <View key={r.userId} style={styles.responseBadge}>
                             <View style={styles.responseAvatar}>
-                              <Text style={styles.responseAvatarText}>{r.by.charAt(0)}</Text>
+                              <Text style={styles.responseAvatarText}>
+                                {getMemberName(r.userId).charAt(0)}
+                              </Text>
                             </View>
                             <Text style={styles.responseText}>{REPLY_LABELS[r.value]}</Text>
                           </View>
@@ -137,14 +150,14 @@ export default function HomeScreen() {
                       </View>
                     ) : null}
                   </View>
-                  {call.sender !== ME && (
+                  {call.senderId !== user.id && (
                     <Pressable
                       accessibilityRole="button"
                       onPress={() => run('respond', call.id)}
                       style={({ pressed }) => [styles.respondButton, pressed && styles.pressed]}
                     >
                       <Text style={styles.respondText}>
-                        {call.responses?.some((r) => r.by === ME) ? '응답 수정' : '응답하기'}
+                        {call.responses.some((r) => r.userId === user.id) ? '응답 수정' : '응답하기'}
                       </Text>
                     </Pressable>
                   )}

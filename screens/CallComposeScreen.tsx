@@ -1,15 +1,18 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useAppData } from '../context/AppDataContext';
-import { CallSource, FREQUENT_MENUS, RECIPES } from '../data/dummy';
+import { FREQUENT_MENUS } from '../constants/call';
+import { useFamilyData } from '../context/FamilyDataContext';
+import { RECIPES } from '../data/recipes';
+import type { CallSource } from '../types/models';
 
 function goConfirm(menu: string, source: CallSource) {
   router.push({ pathname: '/call-confirm', params: { menu, source } });
 }
 
 export default function CallComposeScreen() {
-  const { ingredients } = useAppData();
+  const { ingredients } = useFamilyData();
+  const ingredientNames = ingredients.map((item) => item.name);
   const [text, setText] = useState('');
 
   const submitCustom = () => {
@@ -56,7 +59,7 @@ export default function CallComposeScreen() {
         ) : (
           <View style={styles.cards}>
             {RECIPES.map((recipe) => {
-              const missing = recipe.ingredients.filter((item) => !ingredients.includes(item));
+              const missing = recipe.ingredients.filter((item) => !ingredientNames.includes(item));
               return (
                 <Pressable
                   key={recipe.id}

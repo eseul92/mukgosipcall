@@ -1,17 +1,24 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useAppData } from '../context/AppDataContext';
+import { useFamilyData } from '../context/FamilyDataContext';
 
 export default function FamilyConnectScreen() {
-  const { joinFamily } = useAppData();
+  const { joinFamily, createFamily } = useFamilyData();
   const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  // 실제 초대 코드 검증은 아직 없다. 연결된 척만 한다.
-  const connect = () => {
-    joinFamily();
-    router.dismissTo('/family');
+  const finish = async (action: () => Promise<void>) => {
+    try {
+      await action();
+      router.dismissTo('/family');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '다시 시도해주세요');
+    }
   };
+
+  const connect = () => finish(() => joinFamily(code));
+  const create = () => finish(() => createFamily('우리 가족'));
 
   return (
     <View style={styles.container}>
@@ -20,7 +27,10 @@ export default function FamilyConnectScreen() {
 
       <TextInput
         value={code}
-        onChangeText={(text) => setCode(text.replace(/\D/g, '').slice(0, 6))}
+        onChangeText={(text) => {
+          setError(null);
+          setCode(text.replace(/\D/g, '').slice(0, 6));
+        }}
         onSubmitEditing={() => code.length === 6 && connect()}
         placeholder="000000"
         placeholderTextColor="#D1D5DB"
@@ -28,6 +38,8 @@ export default function FamilyConnectScreen() {
         maxLength={6}
         style={styles.input}
       />
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Pressable
         accessibilityRole="button"
@@ -44,7 +56,7 @@ export default function FamilyConnectScreen() {
 
       <Pressable
         accessibilityRole="button"
-        onPress={connect}
+        onPress={create}
         style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
       >
         <Text style={styles.secondaryButtonText}>새 가족 만들기</Text>
@@ -80,6 +92,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 8,
     color: '#111',
+  },
+  error: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#EF4444',
   },
   primaryButton: {
     marginTop: 16,

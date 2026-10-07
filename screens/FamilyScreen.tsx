@@ -6,26 +6,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ConfirmDialog from '../components/ConfirmDialog';
 import LoginPromptSheet from '../components/LoginPromptSheet';
 import Toast from '../components/Toast';
-import { useAppData } from '../context/AppDataContext';
+import { REPLY_LABELS } from '../constants/call';
 import { useAuth } from '../context/AuthContext';
-import { FAMILY, MEMBERS, REPLY_LABELS, RecentCall } from '../data/dummy';
+import { useFamilyData } from '../context/FamilyDataContext';
 import useToast from '../hooks/useToast';
-
-function responseSummary(call: RecentCall) {
-  if (!call.responses?.length) return '응답 대기 중';
-  return call.responses.map((r) => `${r.by} ${REPLY_LABELS[r.value]}`).join(' · ');
-}
+import type { Call } from '../types/models';
+import { formatRelativeTime } from '../utils/time';
 
 export default function FamilyScreen() {
   const { isGuest, signIn } = useAuth();
-  const { calls, hasFamily, leaveFamily } = useAppData();
+  const { family, members, calls, leaveFamily, getMemberName } = useFamilyData();
   const { message: toast, show: showToast } = useToast();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
+  const responseSummary = (call: Call) =>
+    call.responses.length === 0
+      ? '응답 대기 중'
+      : call.responses.map((r) => `${getMemberName(r.userId)} ${REPLY_LABELS[r.value]}`).join(' · ');
+
   const copyCode = async () => {
+    if (!family) return;
     try {
-      await Clipboard.setStringAsync(FAMILY.inviteCode);
+      await Clipboard.setStringAsync(family.inviteCode);
       showToast('초대 코드를 복사했어요');
     } catch {
       showToast('복사하지 못했어요');
@@ -33,18 +36,19 @@ export default function FamilyScreen() {
   };
 
   const shareCode = async () => {
+    if (!family) return;
     try {
       await Share.share({
-        message: `먹고싶콜에서 같이 밥 정해요. 초대 코드: ${FAMILY.inviteCode}`,
+        message: `먹고싶콜에서 같이 밥 정해요. 초대 코드: ${family.inviteCode}`,
       });
     } catch {
       showToast('이 환경에서는 공유할 수 없어요');
     }
   };
 
-  const confirmLeave = () => {
+  const confirmLeave = async () => {
     setLeaving(false);
-    leaveFamily();
+    await leaveFamily();
     router.push('/family-connect');
   };
 
@@ -83,7 +87,7 @@ export default function FamilyScreen() {
     );
   }
 
-  if (!hasFamily) {
+  if (!family) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.centered}>
@@ -107,11 +111,11 @@ export default function FamilyScreen() {
         <Text style={styles.title}>가족</Text>
 
         <View style={styles.familyCard}>
-          <Text style={styles.familyName}>{FAMILY.name}</Text>
-          <Text style={styles.memberCount}>멤버 {MEMBERS.length}명</Text>
+          <Text style={styles.familyName}>{family.name}</Text>
+          <Text style={styles.memberCount}>멤버 {members.length}명</Text>
           <Text style={styles.codeLabel}>초대 코드</Text>
           <Text style={styles.code} selectable>
-            {FAMILY.inviteCode}
+            {family.inviteCode}
           </Text>
           <View style={styles.cardButtons}>
             <Pressable
@@ -134,13 +138,13 @@ export default function FamilyScreen() {
         <View>
           <Text style={styles.sectionTitle}>멤버</Text>
           <View style={styles.list}>
-            {MEMBERS.map((member) => (
-              <View key={member.id} style={styles.row}>
+            {members.map((member) => (
+              <View key={member.userId} style={styles.row}>
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>{member.name.charAt(0)}</Text>
                 </View>
                 <Text style={styles.memberName}>{member.name}</Text>
-                {member.isOwner && (
+                {member.role === 'owner' && (
                   <View style={styles.ownerBadge}>
                     <Text style={styles.ownerText}>그룹장</Text>
                   </View>
@@ -161,7 +165,7 @@ export default function FamilyScreen() {
                 style={({ pressed }) => [styles.row, pressed && styles.pressed]}
               >
                 <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{call.sender.charAt(0)}</Text>
+                  <Text style={styles.avatarText}>{getMemberName(call.senderId).charAt(0)}</Text>
                 </View>
                 <View style={styles.callBody}>
                   <Text style={styles.callMenu}>{call.menu}</Text>
@@ -169,7 +173,7 @@ export default function FamilyScreen() {
                     {responseSummary(call)}
                   </Text>
                 </View>
-                <Text style={styles.callTime}>{call.time}</Text>
+                <Text style={styles.callTime}>{formatRelativeTime(call.createdAt)}</Text>
               </Pressable>
             ))}
           </View>

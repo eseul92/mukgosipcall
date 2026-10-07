@@ -1,7 +1,8 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { AppDataProvider } from '../../context/AppDataContext';
+import { FamilyDataProvider } from '../../context/FamilyDataContext';
 import { AuthProvider, useAuth } from '../../context/AuthContext';
+import { familyRepository } from '../../repositories';
 
 function RootStack() {
   const { status } = useAuth();
@@ -42,9 +43,9 @@ function RootStack() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <AppDataProvider>
+      <FamilyDataProvider repository={familyRepository}>
         <RootStack />
-      </AppDataProvider>
+      </FamilyDataProvider>
       <StatusBar style="dark" />
     </AuthProvider>
   );
