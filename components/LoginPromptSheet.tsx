@@ -1,4 +1,4 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
@@ -8,7 +8,11 @@ type Props = {
   onClose: () => void;
   onApplePress?: () => void;
   onGooglePress?: () => void;
+  errorMessage?: string | null;
 };
+
+// 안드로이드에서는 Apple 로그인 버튼을 숨긴다.
+const SHOW_APPLE = Platform.OS !== 'android';
 
 export default function LoginPromptSheet({
   visible,
@@ -17,6 +21,7 @@ export default function LoginPromptSheet({
   onClose,
   onApplePress,
   onGooglePress,
+  errorMessage,
 }: Props) {
   const insets = useSafeAreaInsets();
 
@@ -30,14 +35,18 @@ export default function LoginPromptSheet({
           <Text style={styles.description}>{description}</Text>
 
           <View style={styles.buttons}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onApplePress}
-              style={({ pressed }) => [styles.button, styles.appleButton, pressed && styles.pressed]}
-            >
-              <Text style={[styles.icon, styles.appleText]}>{''}</Text>
-              <Text style={[styles.buttonText, styles.appleText]}>Apple로 계속하기</Text>
-            </Pressable>
+            {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+
+            {SHOW_APPLE && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={onApplePress}
+                style={({ pressed }) => [styles.button, styles.appleButton, pressed && styles.pressed]}
+              >
+                <Text style={[styles.icon, styles.appleText]}>{''}</Text>
+                <Text style={[styles.buttonText, styles.appleText]}>Apple로 계속하기</Text>
+              </Pressable>
+            )}
 
             <Pressable
               accessibilityRole="button"
@@ -133,6 +142,11 @@ const styles = StyleSheet.create({
   },
   googleText: {
     color: '#111',
+  },
+  error: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#EF4444',
   },
   laterButton: {
     height: 44,

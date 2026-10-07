@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Logo from '../components/Logo';
 
@@ -6,9 +6,18 @@ type Props = {
   onApplePress?: () => void;
   onGooglePress?: () => void;
   onGuestPress?: () => void;
+  errorMessage?: string | null;
 };
 
-export default function LoginScreen({ onApplePress, onGooglePress, onGuestPress }: Props) {
+// 안드로이드에서는 Apple 로그인 버튼을 숨긴다.
+const SHOW_APPLE = Platform.OS !== 'android';
+
+export default function LoginScreen({
+  onApplePress,
+  onGooglePress,
+  onGuestPress,
+  errorMessage,
+}: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -20,14 +29,18 @@ export default function LoginScreen({ onApplePress, onGooglePress, onGuestPress 
       </View>
 
       <View style={styles.buttons}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onApplePress}
-          style={({ pressed }) => [styles.button, styles.appleButton, pressed && styles.pressed]}
-        >
-          <Text style={[styles.icon, styles.appleText]}>{''}</Text>
-          <Text style={[styles.buttonText, styles.appleText]}>Apple로 계속하기</Text>
-        </Pressable>
+        {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+
+        {SHOW_APPLE && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onApplePress}
+            style={({ pressed }) => [styles.button, styles.appleButton, pressed && styles.pressed]}
+          >
+            <Text style={[styles.icon, styles.appleText]}>{''}</Text>
+            <Text style={[styles.buttonText, styles.appleText]}>Apple로 계속하기</Text>
+          </Pressable>
+        )}
 
         <Pressable
           accessibilityRole="button"
@@ -110,6 +123,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#6B7280',
     textDecorationLine: 'underline',
+  },
+  error: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#EF4444',
   },
   pressed: {
     opacity: 0.7,

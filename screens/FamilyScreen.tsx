@@ -9,14 +9,18 @@ import Toast from '../components/Toast';
 import { REPLY_LABELS } from '../constants/call';
 import { useAuth } from '../context/AuthContext';
 import { useFamilyData } from '../context/FamilyDataContext';
+import useLoginHandlers from '../hooks/useLoginHandlers';
 import useToast from '../hooks/useToast';
 import type { Call } from '../types/models';
 import { formatRelativeTime } from '../utils/time';
 
 export default function FamilyScreen() {
-  const { isGuest, signIn } = useAuth();
+  const { isGuest } = useAuth();
   const { family, members, calls, leaveFamily, getMemberName } = useFamilyData();
   const { message: toast, show: showToast } = useToast();
+  const { error: loginError, clearError, onGoogle } = useLoginHandlers((notice) =>
+    showToast(notice, 4000),
+  );
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
@@ -73,15 +77,16 @@ export default function FamilyScreen() {
           visible={sheetOpen}
           title="가족과 연결하려면 로그인이 필요해요"
           description="로그인하면 가족을 초대하고 함께 먹을 메뉴를 정할 수 있어요."
-          onClose={() => setSheetOpen(false)}
-          onApplePress={() => {
+          onClose={() => {
             setSheetOpen(false);
-            signIn();
+            clearError();
           }}
-          onGooglePress={() => {
-            setSheetOpen(false);
-            signIn();
+          onGooglePress={async () => {
+            // 취소나 오류면 시트를 열어 둔 채 머문다.
+            const result = await onGoogle();
+            if (result?.status === 'success') setSheetOpen(false);
           }}
+          errorMessage={loginError}
         />
       </SafeAreaView>
     );
@@ -101,6 +106,8 @@ export default function FamilyScreen() {
             <Text style={styles.primaryButtonText}>가족 연결하기</Text>
           </Pressable>
         </View>
+
+        <Toast message={toast} />
       </SafeAreaView>
     );
   }

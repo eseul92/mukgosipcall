@@ -12,7 +12,20 @@
           "package_name": "com.yiseulpark.mukgosipcall"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "316278775873-g2thp08mgouqakb9iphkk6ki78t3a9cq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.yiseulpark.mukgosipcall",
+            "certificate_hash": "719e954c98994692c167b6ef11cc1c34edb2aed9"
+          }
+        },
+        {
+          "client_id": "316278775873-7vuk8hk3rd867n8usbfb9d1ise6dtuc6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAL2Dgs11QmVyTaGZdnhJaT8WRcL-jthFA"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "316278775873-7vuk8hk3rd867n8usbfb9d1ise6dtuc6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

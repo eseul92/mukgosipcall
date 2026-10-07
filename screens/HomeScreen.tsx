@@ -10,6 +10,7 @@ import Toast from '../components/Toast';
 import { REPLY_LABELS } from '../constants/call';
 import { useAuth } from '../context/AuthContext';
 import { useFamilyData } from '../context/FamilyDataContext';
+import useLoginHandlers from '../hooks/useLoginHandlers';
 import useToast from '../hooks/useToast';
 import { formatRelativeTime } from '../utils/time';
 
@@ -33,12 +34,15 @@ const PROMPTS: Record<Action, { title: string; description: string }> = {
 };
 
 export default function HomeScreen() {
-  const { isGuest, signIn } = useAuth();
+  const { isGuest } = useAuth();
   const { user, ingredients, addIngredient, removeIngredient, calls, hasFamily, getMemberName } =
     useFamilyData();
   const [needFamily, setNeedFamily] = useState(false);
   const [promptFor, setPromptFor] = useState<Action | null>(null);
   const { message: toast, show: showToast } = useToast();
+  const { error: loginError, clearError, onGoogle } = useLoginHandlers((notice) =>
+    showToast(notice, 4000),
+  );
 
   const run = (action: Action, callId?: string) => {
     if (isGuest) {
@@ -53,10 +57,15 @@ export default function HomeScreen() {
     }
   };
 
-  const handleSignIn = () => {
-    // 실제 인증은 아직 없다. 로그인된 척만 한다.
+  const closePrompt = () => {
     setPromptFor(null);
-    signIn();
+    clearError();
+  };
+
+  // 취소나 오류면 시트를 열어 둔 채 머문다.
+  const handleGoogle = async () => {
+    const result = await onGoogle();
+    if (result?.status === 'success') closePrompt();
   };
 
   const prompt = promptFor ? PROMPTS[promptFor] : null;
@@ -187,9 +196,9 @@ export default function HomeScreen() {
         visible={prompt !== null}
         title={prompt?.title ?? ''}
         description={prompt?.description ?? ''}
-        onClose={() => setPromptFor(null)}
-        onApplePress={handleSignIn}
-        onGooglePress={handleSignIn}
+        onClose={closePrompt}
+        onGooglePress={handleGoogle}
+        errorMessage={loginError}
       />
     </SafeAreaView>
   );

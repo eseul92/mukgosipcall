@@ -6,10 +6,10 @@ export default function useToast() {
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const show = useCallback((text: string) => {
+  const show = useCallback((text: string, duration = 1800) => {
     clearTimeout(timer.current);
     setMessage(text);
-    timer.current = setTimeout(() => setMessage(null), 1800);
+    timer.current = setTimeout(() => setMessage(null), duration);
   }, []);
 
   return { message, show };
