@@ -5,9 +5,10 @@ import Logo from '../components/Logo';
 type Props = {
   onApplePress?: () => void;
   onGooglePress?: () => void;
+  onGuestPress?: () => void;
 };
 
-export default function LoginScreen({ onApplePress, onGooglePress }: Props) {
+export default function LoginScreen({ onApplePress, onGooglePress, onGuestPress }: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -35,6 +36,14 @@ export default function LoginScreen({ onApplePress, onGooglePress }: Props) {
         >
           <Text style={[styles.icon, styles.googleIcon]}>G</Text>
           <Text style={[styles.buttonText, styles.googleText]}>Google로 계속하기</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={onGuestPress}
+          style={({ pressed }) => [styles.guestButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.guestText}>로그인 없이 둘러보기</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -91,6 +100,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#D1D5DB',
+  },
+  guestButton: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestText: {
+    fontSize: 15,
+    color: '#6B7280',
+    textDecorationLine: 'underline',
   },
   pressed: {
     opacity: 0.7,
