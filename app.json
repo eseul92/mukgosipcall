@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.yiseulpark.mukgosipcall",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FF7A5C",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -26,7 +27,10 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-google-signin/google-signin"
     ]
   }
 }
