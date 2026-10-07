@@ -289,12 +289,13 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   noFamily: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 12,
   },
   noFamilyText: {
     fontSize: 15,
     color: '#6B7280',
+    textAlign: 'center',
   },
   responses: {
     flexDirection: 'row',
