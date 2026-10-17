@@ -19,6 +19,9 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['displayName', 'photoURL', 'fcmTokens']);
       allow delete: if false;
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['photoURL', 'fcmTokens']);
     }
 
     match /families/{familyId} {
@@ -28,6 +31,10 @@ service cloud.firestore {
       match /members/{uid} {
         allow read: if isMember(familyId);
         allow write: if false;
+      }
+
+      match /nicknames/{key} {
+        allow read, write: if false;
       }
 
       match /ingredients/{id} {
