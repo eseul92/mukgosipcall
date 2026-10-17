@@ -5,6 +5,7 @@ import {
   getCurrentAuthUser,
   signInAsGuest,
   signInWithGoogle as googleSignIn,
+  signOutFirebase,
   subscribeAuth,
 } from '../services/authService';
 import { subscribeDisplayName } from '../services/userProfile';
@@ -18,6 +19,8 @@ type AuthValue = {
   uid: string | null;
   /** 구글 계정 이름. 닉네임 입력의 기본값으로 쓴다. */
   authName: string | null;
+  /** 로그인한 구글 이메일. 게스트는 null */
+  email: string | null;
   /** 로그인했는데(익명 제외) users/{uid}.displayName이 비어 있으면 true */
   needsNickname: boolean;
   /** users/{uid}.displayName. 비어 있거나 아직 못 읽었으면 null */
@@ -26,6 +29,8 @@ type AuthValue = {
   hasNickname: boolean;
   continueAsGuest: () => Promise<AuthResult>;
   signInWithGoogle: () => Promise<AuthResult>;
+  /** Firebase Auth 로그아웃. 실패하면 reject */
+  signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -69,12 +74,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isGuest: user?.isAnonymous === true,
       uid,
       authName: user?.displayName ?? null,
+      email: user?.email ?? null,
       // 문서가 아직 없을 때(로그인 직후 만드는 중)는 묻지 않는다.
       needsNickname: profile !== null && profile.uid === uid && !profile.displayName?.trim(),
       displayName: (profile?.uid === uid && profile.displayName?.trim()) || null,
       hasNickname: profile !== null && profile.uid === uid && !!profile.displayName?.trim(),
       continueAsGuest: () => withRefresh(signInAsGuest),
       signInWithGoogle: () => withRefresh(googleSignIn),
+      // 상태 이벤트를 기다리지 않고 바로 로그아웃 상태로 만들어 로그인 화면으로 넘어가게 한다.
+      signOut: async () => {
+        await signOutFirebase();
+        setUser(null);
+      },
     }),
     [user, uid, profile, withRefresh],
   );

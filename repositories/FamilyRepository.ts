@@ -58,4 +58,6 @@ export interface RealtimeFamilyRepository extends FamilyRepository {
    * 이전 사용자의 구독을 해제하고 새 상태를 보낸다. 반환값으로 구독을 해제한다.
    */
   subscribeFamily(listener: (state: FamilyState) => void): () => void;
+  /** 로그아웃할 때 이전 사용자의 가족, 콜, 재료 상태를 모두 버린다. */
+  reset(): void;
 }

@@ -8,6 +8,7 @@ import {
   query,
 } from '@react-native-firebase/firestore';
 import { callFunction } from '../services/callable';
+import { startTracked } from '../services/listenerRegistry';
 import type { Family, Member, Reply, User } from '../types/models';
 import { DummyFamilyRepository } from './DummyFamilyRepository';
 import type {
@@ -71,7 +72,7 @@ function watchFamily(
 // 가족 기능(생성/참여/탈퇴/구독)만 Firebase로 연결한다.
 // 재료와 콜은 아직 더미 구현에 맡긴다.
 export class FirebaseFamilyRepository implements RealtimeFamilyRepository {
-  private readonly dummy = new DummyFamilyRepository();
+  private dummy = new DummyFamilyRepository();
   /** 마지막으로 구독이 알려 준 familyId */
   private familyId: string | null = null;
 
@@ -87,7 +88,7 @@ export class FirebaseFamilyRepository implements RealtimeFamilyRepository {
       stopWatching();
       stopWatching = noop;
       if (user) {
-        stopWatching = this.watchUser(user.uid, listener);
+        stopWatching = startTracked(() => this.watchUser(user.uid, listener));
       } else {
         this.publish(EMPTY_STATE, listener);
       }
@@ -142,6 +143,11 @@ export class FirebaseFamilyRepository implements RealtimeFamilyRepository {
       stopUser();
       stopFamily();
     };
+  }
+
+  reset() {
+    this.dummy = new DummyFamilyRepository();
+    this.familyId = null;
   }
 
   private publish(state: FamilyState, listener: (state: FamilyState) => void) {

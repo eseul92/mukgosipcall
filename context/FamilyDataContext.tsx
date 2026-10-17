@@ -35,9 +35,14 @@ type FamilyDataValue = Snapshot & {
   removeIngredient: (ingredientId: string) => Promise<void>;
   sendCall: (input: SendCallInput) => Promise<void>;
   respondToCall: (callId: string, value: Reply) => Promise<void>;
+  /** 로그아웃할 때 사용자, 가족, 콜, 재료 상태를 모두 비운다. */
+  resetAll: () => void;
 };
 
 const FamilyDataContext = createContext<FamilyDataValue | null>(null);
+
+const SIGNED_OUT_USER: User = { id: '', name: '나' };
+const EMPTY_FAMILY_STATE: FamilyState = { familyId: null, family: null, members: [] };
 
 // 구독이 결과를 반영하길 기다리는 최대 시간. 넘기면 기다리지 않고 진행한다.
 const SYNC_TIMEOUT_MS = 5000;
@@ -55,15 +60,27 @@ export function FamilyDataProvider({
   const [familyState, setFamilyState] = useState<FamilyState | null>(null);
 
   const latestFamilyId = useRef<string | null>(null);
+  // 초기화할 때마다 올려서, 그 전에 시작한 읽기가 나중에 도착해도 버리게 한다.
+  const generation = useRef(0);
   const syncWaiters = useRef(new Set<() => void>());
 
   const refresh = useCallback(async () => {
+    const started = generation.current;
     const [user, ingredients, calls] = await Promise.all([
       repository.getCurrentUser(),
       repository.listIngredients(),
       repository.listCalls(),
     ]);
+    if (started !== generation.current) return;
     setSnapshot({ user, ingredients, calls });
+  }, [repository]);
+
+  const resetAll = useCallback(() => {
+    generation.current += 1;
+    repository.reset();
+    latestFamilyId.current = null;
+    setFamilyState(EMPTY_FAMILY_STATE);
+    setSnapshot({ user: SIGNED_OUT_USER, ingredients: [], calls: [] });
   }, [repository]);
 
   useEffect(
@@ -135,8 +152,9 @@ export function FamilyDataProvider({
       removeIngredient: (id) => mutate(() => repository.removeIngredient(id)),
       sendCall: (input) => mutate(() => repository.sendCall(input)),
       respondToCall: (callId, reply) => mutate(() => repository.respondToCall(callId, reply)),
+      resetAll,
     };
-  }, [snapshot, familyState, repository, refresh, waitForFamily]);
+  }, [snapshot, familyState, repository, refresh, waitForFamily, resetAll]);
 
   // 첫 로드 전에는 "가족 없음" 화면이 잠깐 비치지 않도록 그리지 않는다.
   if (!value) return null;

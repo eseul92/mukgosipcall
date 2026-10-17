@@ -5,6 +5,7 @@ import {
   onAuthStateChanged,
   signInAnonymously,
   signInWithCredential,
+  signOut,
 } from '@react-native-firebase/auth';
 import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
 import { GOOGLE_WEB_CLIENT_ID } from '../constants/auth';
@@ -15,6 +16,8 @@ export type AuthUser = {
   isAnonymous: boolean;
   /** 구글 계정 이름. 없으면 null */
   displayName: string | null;
+  /** 로그인한 구글 이메일. 게스트는 null */
+  email: string | null;
 };
 
 export type AuthResult =
@@ -29,7 +32,14 @@ GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
 type FirebaseUserLike = NonNullable<ReturnType<typeof getAuth>['currentUser']>;
 
 function toAuthUser(user: FirebaseUserLike | null): AuthUser | null {
-  return user ? { uid: user.uid, isAnonymous: user.isAnonymous, displayName: user.displayName ?? null } : null;
+  return user
+    ? {
+        uid: user.uid,
+        isAnonymous: user.isAnonymous,
+        displayName: user.displayName ?? null,
+        email: user.email ?? null,
+      }
+    : null;
 }
 
 // 문서 생성이 실패해도 로그인 자체는 성공으로 둔다. 다음 로그인/앱 시작 때 다시 시도한다.
@@ -136,4 +146,13 @@ export async function signInWithGoogle(): Promise<AuthResult> {
   } catch (e) {
     return toFailure(e);
   }
+}
+
+/** 다음 로그인에서 계정 선택 창이 뜨도록 구글 로그인 세션을 끊는다. */
+export function signOutGoogle() {
+  return GoogleSignin.signOut();
+}
+
+export function signOutFirebase() {
+  return signOut(getAuth());
 }

@@ -75,14 +75,24 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.titleRow}>
           <Text style={styles.title}>먹고싶콜</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="알림"
-            hitSlop={8}
-            onPress={() => showToast('새 알림이 없어요')}
-          >
-            <Ionicons name="notifications-outline" size={26} color="#111" />
-          </Pressable>
+          <View style={styles.titleActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="알림"
+              hitSlop={8}
+              onPress={() => showToast('새 알림이 없어요')}
+            >
+              <Ionicons name="notifications-outline" size={26} color="#111" />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="설정"
+              hitSlop={8}
+              onPress={() => router.push('/settings')}
+            >
+              <Ionicons name="settings-outline" size={26} color="#111" />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.heroCard}>
@@ -212,6 +222,11 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     gap: 28,
+  },
+  titleActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   titleRow: {
     flexDirection: 'row',

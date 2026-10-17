@@ -6,6 +6,7 @@ import {
   serverTimestamp,
 } from '@react-native-firebase/firestore';
 import { callFunction } from './callable';
+import { startTracked } from './listenerRegistry';
 
 export type AuthProvider = 'anonymous' | 'google';
 
@@ -34,17 +35,19 @@ export async function ensureUserDocument({ uid, photoURL, authProvider }: Profil
  * (문서는 로그인 직후 따로 만들어지므로, 없는 것과 이름이 비어 있는 것을 구분해야 한다.)
  */
 export function subscribeDisplayName(uid: string, listener: (displayName: string | null | undefined) => void) {
-  return onSnapshot(
-    doc(getFirestore(), 'users', uid),
-    (snap) => {
-      if (!snap.exists()) return listener(undefined);
-      const name = snap.data()?.displayName;
-      listener(typeof name === 'string' ? name : null);
-    },
-    (e) => {
-      console.warn('이름을 읽지 못했어요', e);
-      listener(undefined);
-    },
+  return startTracked(() =>
+    onSnapshot(
+      doc(getFirestore(), 'users', uid),
+      (snap) => {
+        if (!snap.exists()) return listener(undefined);
+        const name = snap.data()?.displayName;
+        listener(typeof name === 'string' ? name : null);
+      },
+      (e) => {
+        console.warn('이름을 읽지 못했어요', e);
+        listener(undefined);
+      },
+    ),
   );
 }
 
