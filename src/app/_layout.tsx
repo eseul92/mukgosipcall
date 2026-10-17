@@ -5,7 +5,7 @@ import { AuthProvider, useAuth } from '../../context/AuthContext';
 import { familyRepository } from '../../repositories';
 
 function RootStack() {
-  const { status } = useAuth();
+  const { status, needsNickname } = useAuth();
   const signedOut = status === 'signedOut';
 
   return (
@@ -13,7 +13,10 @@ function RootStack() {
       <Stack.Protected guard={signedOut}>
         <Stack.Screen name="login" />
       </Stack.Protected>
-      <Stack.Protected guard={!signedOut}>
+      <Stack.Protected guard={needsNickname}>
+        <Stack.Screen name="nickname" />
+      </Stack.Protected>
+      <Stack.Protected guard={!signedOut && !needsNickname}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="recipes"

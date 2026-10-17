@@ -23,7 +23,7 @@ export default function RespondScreen() {
     router.back();
   };
 
-  const senderName = getMemberName(call.senderId);
+  const senderName = getMemberName(call.senderId, call.senderName);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>

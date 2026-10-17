@@ -1,7 +1,12 @@
-import { DummyFamilyRepository } from './DummyFamilyRepository';
-import type { FamilyRepository } from './FamilyRepository';
+import { FirebaseFamilyRepository } from './FirebaseFamilyRepository';
+import type { RealtimeFamilyRepository } from './FamilyRepository';
 
-export type { FamilyRepository, SendCallInput } from './FamilyRepository';
+export type {
+  FamilyRepository,
+  FamilyState,
+  RealtimeFamilyRepository,
+  SendCallInput,
+} from './FamilyRepository';
 
-// Firebase 구현체가 생기면 이 한 줄만 바꾼다.
-export const familyRepository: FamilyRepository = new DummyFamilyRepository();
+// 가족은 Firebase, 재료와 콜은 아직 더미(FirebaseFamilyRepository 안에서 위임).
+export const familyRepository: RealtimeFamilyRepository = new FirebaseFamilyRepository();

@@ -1,12 +1,14 @@
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ConfirmDialog from '../components/ConfirmDialog';
 import LoginPromptSheet from '../components/LoginPromptSheet';
+import RenameDialog from '../components/RenameDialog';
 import Toast from '../components/Toast';
 import { REPLY_LABELS } from '../constants/call';
+import { RETRY_MESSAGE } from '../constants/family';
 import { useAuth } from '../context/AuthContext';
 import { useFamilyData } from '../context/FamilyDataContext';
 import useLoginHandlers from '../hooks/useLoginHandlers';
@@ -16,18 +18,21 @@ import { formatRelativeTime } from '../utils/time';
 
 export default function FamilyScreen() {
   const { isGuest } = useAuth();
-  const { family, members, calls, leaveFamily, getMemberName } = useFamilyData();
+  const { user, family, members, hasFamily, calls, leaveFamily, getMemberName } = useFamilyData();
   const { message: toast, show: showToast } = useToast();
   const { error: loginError, clearError, onGoogle } = useLoginHandlers((notice) =>
     showToast(notice, 4000),
   );
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [leavePending, setLeavePending] = useState(false);
+  const leaveBusy = useRef(false);
 
   const responseSummary = (call: Call) =>
     call.responses.length === 0
       ? '응답 대기 중'
-      : call.responses.map((r) => `${getMemberName(r.userId)} ${REPLY_LABELS[r.value]}`).join(' · ');
+      : call.responses.map((r) => `${getMemberName(r.userId, r.userName)} ${REPLY_LABELS[r.value]}`).join(' · ');
 
   const copyCode = async () => {
     if (!family) return;
@@ -50,10 +55,20 @@ export default function FamilyScreen() {
     }
   };
 
+  // 나가면 가족 상태 구독이 화면을 가족 없음으로 바꾼다.
   const confirmLeave = async () => {
     setLeaving(false);
-    await leaveFamily();
-    router.push('/family-connect');
+    if (leaveBusy.current) return;
+    leaveBusy.current = true;
+    setLeavePending(true);
+    try {
+      await leaveFamily();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : RETRY_MESSAGE, 3000);
+    } finally {
+      leaveBusy.current = false;
+      setLeavePending(false);
+    }
   };
 
   if (isGuest) {
@@ -92,7 +107,7 @@ export default function FamilyScreen() {
     );
   }
 
-  if (!family) {
+  if (!hasFamily) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.centered}>
@@ -112,6 +127,21 @@ export default function FamilyScreen() {
     );
   }
 
+  // 가족이 있지만 가족 문서를 아직 읽는 중
+  if (!family) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.centered}>
+          <ActivityIndicator color="#FF5A5F" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const memberCount = family.memberCount ?? members.length;
+  const dissolves =
+    memberCount <= 1 && members.some((m) => m.userId === user.id && m.role === 'owner');
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -119,7 +149,7 @@ export default function FamilyScreen() {
 
         <View style={styles.familyCard}>
           <Text style={styles.familyName}>{family.name}</Text>
-          <Text style={styles.memberCount}>멤버 {members.length}명</Text>
+          <Text style={styles.memberCount}>멤버 {memberCount}명</Text>
           <Text style={styles.codeLabel}>초대 코드</Text>
           <Text style={styles.code} selectable>
             {family.inviteCode}
@@ -156,6 +186,16 @@ export default function FamilyScreen() {
                     <Text style={styles.ownerText}>그룹장</Text>
                   </View>
                 )}
+                {member.userId === user.id && (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setRenaming(true)}
+                    hitSlop={6}
+                    style={({ pressed }) => [styles.renameButton, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.renameText}>이름 바꾸기</Text>
+                  </Pressable>
+                )}
               </View>
             ))}
           </View>
@@ -172,7 +212,7 @@ export default function FamilyScreen() {
                 style={({ pressed }) => [styles.row, pressed && styles.pressed]}
               >
                 <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{getMemberName(call.senderId).charAt(0)}</Text>
+                  <Text style={styles.avatarText}>{getMemberName(call.senderId, call.senderName).charAt(0)}</Text>
                 </View>
                 <View style={styles.callBody}>
                   <Text style={styles.callMenu}>{call.menu}</Text>
@@ -188,19 +228,38 @@ export default function FamilyScreen() {
 
         <Pressable
           accessibilityRole="button"
+          disabled={leavePending}
           onPress={() => setLeaving(true)}
           style={({ pressed }) => [styles.leaveButton, pressed && styles.pressed]}
         >
-          <Text style={styles.leaveText}>가족 나가기</Text>
+          {leavePending ? (
+            <ActivityIndicator size="small" color="#9CA3AF" />
+          ) : (
+            <Text style={styles.leaveText}>가족 나가기</Text>
+          )}
         </Pressable>
       </ScrollView>
 
       <Toast message={toast} />
 
+      <RenameDialog
+        visible={renaming}
+        initialName={members.find((m) => m.userId === user.id)?.name ?? ''}
+        onClose={() => setRenaming(false)}
+        onSaved={() => {
+          setRenaming(false);
+          showToast('이름을 바꿨어요');
+        }}
+      />
+
       <ConfirmDialog
         visible={leaving}
         title="가족에서 나갈까요?"
-        message="나가면 가족의 콜 기록을 볼 수 없어요."
+        message={
+          dissolves
+            ? '마지막 멤버라서 나가면 가족이 삭제돼요.'
+            : '나가면 가족의 콜 기록을 볼 수 없어요.'
+        }
         confirmLabel="나가기"
         onCancel={() => setLeaving(false)}
         onConfirm={confirmLeave}
@@ -349,6 +408,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FF5A5F',
   },
+  renameButton: {
+    paddingHorizontal: 10,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  renameText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
   callBody: {
     flex: 1,
   },
@@ -368,6 +441,10 @@ const styles = StyleSheet.create({
   },
   leaveButton: {
     alignSelf: 'center',
+    minWidth: 96,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
   },

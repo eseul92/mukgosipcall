@@ -13,6 +13,8 @@ import { ensureUserDocument } from './userProfile';
 export type AuthUser = {
   uid: string;
   isAnonymous: boolean;
+  /** 구글 계정 이름. 없으면 null */
+  displayName: string | null;
 };
 
 export type AuthResult =
@@ -27,7 +29,7 @@ GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
 type FirebaseUserLike = NonNullable<ReturnType<typeof getAuth>['currentUser']>;
 
 function toAuthUser(user: FirebaseUserLike | null): AuthUser | null {
-  return user ? { uid: user.uid, isAnonymous: user.isAnonymous } : null;
+  return user ? { uid: user.uid, isAnonymous: user.isAnonymous, displayName: user.displayName ?? null } : null;
 }
 
 // 문서 생성이 실패해도 로그인 자체는 성공으로 둔다. 다음 로그인/앱 시작 때 다시 시도한다.
@@ -36,7 +38,6 @@ async function ensureProfile(user: FirebaseUserLike | null) {
   try {
     await ensureUserDocument({
       uid: user.uid,
-      displayName: user.displayName ?? null,
       photoURL: user.photoURL ?? null,
       authProvider: user.isAnonymous ? 'anonymous' : 'google',
     });

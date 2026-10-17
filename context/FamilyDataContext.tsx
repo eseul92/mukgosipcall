@@ -5,22 +5,29 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
-import type { FamilyRepository, SendCallInput } from '../repositories';
+import type { FamilyState, RealtimeFamilyRepository, SendCallInput } from '../repositories';
 import type { Call, Family, Ingredient, Member, Reply, User } from '../types/models';
+import { useAuth } from './AuthContext';
 
+// 가족 상태는 구독으로 오고, 나머지는 변경 뒤에 다시 읽는다.
 type Snapshot = {
   user: User;
-  family: Family | null;
-  members: Member[];
   ingredients: Ingredient[];
   calls: Call[];
 };
 
 type FamilyDataValue = Snapshot & {
+  family: Family | null;
+  /** users/{uid}.familyId. 가족이 없으면 null */
+  familyId: string | null;
+  members: Member[];
+  /** users/{uid}에 familyId가 있으면 true. family 문서를 읽는 중에도 true */
   hasFamily: boolean;
-  getMemberName: (userId: string) => string;
+  /** 멤버 목록의 현재 이름. 못 찾으면(나간 사람) 저장돼 있던 이름, 그것도 없으면 '가족' */
+  getMemberName: (userId: string, savedName?: string) => string;
   createFamily: (name: string) => Promise<void>;
   joinFamily: (inviteCode: string) => Promise<void>;
   leaveFamily: () => Promise<void>;
@@ -32,35 +39,73 @@ type FamilyDataValue = Snapshot & {
 
 const FamilyDataContext = createContext<FamilyDataValue | null>(null);
 
+// 구독이 결과를 반영하길 기다리는 최대 시간. 넘기면 기다리지 않고 진행한다.
+const SYNC_TIMEOUT_MS = 5000;
+
 // 화면은 repository를 직접 만지지 않고 이 컨텍스트만 쓴다.
 export function FamilyDataProvider({
   repository,
   children,
 }: {
-  repository: FamilyRepository;
+  repository: RealtimeFamilyRepository;
   children: ReactNode;
 }) {
+  const { uid } = useAuth();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [familyState, setFamilyState] = useState<FamilyState | null>(null);
+
+  const latestFamilyId = useRef<string | null>(null);
+  const syncWaiters = useRef(new Set<() => void>());
 
   const refresh = useCallback(async () => {
-    const [user, family, members, ingredients, calls] = await Promise.all([
+    const [user, ingredients, calls] = await Promise.all([
       repository.getCurrentUser(),
-      repository.getFamily(),
-      repository.listMembers(),
       repository.listIngredients(),
       repository.listCalls(),
     ]);
-    setSnapshot({ user, family, members, ingredients, calls });
+    setSnapshot({ user, ingredients, calls });
   }, [repository]);
 
+  useEffect(
+    () =>
+      repository.subscribeFamily((next) => {
+        latestFamilyId.current = next.familyId;
+        setFamilyState(next);
+        syncWaiters.current.forEach((check) => check());
+      }),
+    [repository],
+  );
+
+  // 사용자나 가족이 바뀌면 사용자 정보와 콜을 다시 읽는다.
+  const familyId = familyState?.familyId ?? null;
   useEffect(() => {
     refresh();
-  }, [refresh]);
+  }, [refresh, uid, familyId]);
+
+  // 가족을 만들거나 나간 직후 화면이 옛 상태로 한 번 깜빡이지 않도록, 구독이 반영될 때까지 기다린다.
+  const waitForFamily = useCallback(
+    (done: (familyId: string | null) => boolean) =>
+      new Promise<void>((resolve) => {
+        if (done(latestFamilyId.current)) return resolve();
+
+        const finish = () => {
+          clearTimeout(timer);
+          syncWaiters.current.delete(check);
+          resolve();
+        };
+        const check = () => {
+          if (done(latestFamilyId.current)) finish();
+        };
+        const timer = setTimeout(finish, SYNC_TIMEOUT_MS);
+        syncWaiters.current.add(check);
+      }),
+    [],
+  );
 
   const value = useMemo<FamilyDataValue | null>(() => {
-    if (!snapshot) return null;
+    if (!snapshot || !familyState) return null;
 
-    // 변경 뒤에는 항상 다시 읽어 화면과 저장소를 맞춘다.
+    // 변경 뒤에는 다시 읽어 화면과 저장소를 맞춘다.
     const mutate = async (op: () => Promise<unknown>) => {
       await op();
       await refresh();
@@ -68,18 +113,30 @@ export function FamilyDataProvider({
 
     return {
       ...snapshot,
-      hasFamily: snapshot.family !== null,
-      getMemberName: (userId) =>
-        snapshot.members.find((m) => m.userId === userId)?.name ?? '알 수 없음',
-      createFamily: (name) => mutate(() => repository.createFamily(name)),
-      joinFamily: (inviteCode) => mutate(() => repository.joinFamily(inviteCode)),
-      leaveFamily: () => mutate(() => repository.leaveFamily()),
+      family: familyState.family,
+      familyId: familyState.familyId,
+      members: familyState.members,
+      hasFamily: familyState.familyId !== null,
+      getMemberName: (userId, savedName) =>
+        familyState.members.find((m) => m.userId === userId)?.name || savedName || '가족',
+      createFamily: async (name) => {
+        await repository.createFamily(name);
+        await waitForFamily((id) => id !== null);
+      },
+      joinFamily: async (inviteCode) => {
+        await repository.joinFamily(inviteCode);
+        await waitForFamily((id) => id !== null);
+      },
+      leaveFamily: async () => {
+        await repository.leaveFamily();
+        await waitForFamily((id) => id === null);
+      },
       addIngredient: (name) => mutate(() => repository.addIngredient(name)),
       removeIngredient: (id) => mutate(() => repository.removeIngredient(id)),
       sendCall: (input) => mutate(() => repository.sendCall(input)),
       respondToCall: (callId, reply) => mutate(() => repository.respondToCall(callId, reply)),
     };
-  }, [snapshot, repository, refresh]);
+  }, [snapshot, familyState, repository, refresh, waitForFamily]);
 
   // 첫 로드 전에는 "가족 없음" 화면이 잠깐 비치지 않도록 그리지 않는다.
   if (!value) return null;

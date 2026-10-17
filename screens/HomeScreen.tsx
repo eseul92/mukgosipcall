@@ -134,7 +134,7 @@ export default function HomeScreen() {
               {calls.slice(0, RECENT_COUNT).map((call) => (
                 <View key={call.id} style={styles.callRow}>
                   <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{getMemberName(call.senderId).charAt(0)}</Text>
+                    <Text style={styles.avatarText}>{getMemberName(call.senderId, call.senderName).charAt(0)}</Text>
                   </View>
                   <View style={styles.callBody}>
                     <Text style={styles.callMessage} numberOfLines={2}>
@@ -142,7 +142,7 @@ export default function HomeScreen() {
                     </Text>
                     {call.memo ? <Text style={styles.callMemo}>{call.memo}</Text> : null}
                     <Text style={styles.callTime}>
-                      {getMemberName(call.senderId)} · {formatRelativeTime(call.createdAt)}
+                      {getMemberName(call.senderId, call.senderName)} · {formatRelativeTime(call.createdAt)}
                     </Text>
                     {call.responses.length > 0 ? (
                       <View style={styles.responses}>
@@ -150,7 +150,7 @@ export default function HomeScreen() {
                           <View key={r.userId} style={styles.responseBadge}>
                             <View style={styles.responseAvatar}>
                               <Text style={styles.responseAvatarText}>
-                                {getMemberName(r.userId).charAt(0)}
+                                {getMemberName(r.userId, r.userName).charAt(0)}
                               </Text>
                             </View>
                             <Text style={styles.responseText}>{REPLY_LABELS[r.value]}</Text>

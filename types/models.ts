@@ -20,6 +20,7 @@ export interface Family {
   name: string;
   inviteCode: string;
   ownerId: string;
+  memberCount?: number;
 }
 
 export interface Member {
@@ -38,6 +39,8 @@ export interface Ingredient {
 
 export interface Response {
   userId: string;
+  /** 응답 당시 이름. 멤버 목록에서 못 찾을 때(나간 사람)만 쓴다. */
+  userName?: string;
   value: Reply;
   createdAt: number;
 }
@@ -46,6 +49,8 @@ export interface Call {
   id: string;
   familyId: string;
   senderId: string;
+  /** 보낼 당시 이름. 멤버 목록에서 못 찾을 때(나간 사람)만 쓴다. */
+  senderName?: string;
   menu: string;
   mealType: MealType;
   memo?: string;
