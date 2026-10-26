@@ -211,12 +211,15 @@ export default function FamilyScreen() {
         <View>
           <Text style={styles.sectionTitle}>콜 기록</Text>
           <View style={styles.list}>
-            {calls.map((call) => (
+            {calls.map((call) => {
+              // 다시 보내기는 내가 보낸 콜에만 있다.
+              const isMine = call.senderId === user.id;
+              return (
               <Pressable
                 key={call.id}
                 accessibilityRole="button"
                 onPress={() => router.push({ pathname: '/respond', params: { callId: call.id } })}
-                onLongPress={() => resend(call)}
+                onLongPress={isMine ? () => resend(call) : undefined}
                 style={({ pressed }) => [styles.row, pressed && styles.pressed]}
               >
                 <View style={styles.avatar}>
@@ -230,18 +233,21 @@ export default function FamilyScreen() {
                 </View>
                 <View style={styles.callSide}>
                   <Text style={styles.callTime}>{formatRelativeTime(call.createdAt)}</Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${call.menu} 다시 콜 보내기`}
-                    onPress={() => resend(call)}
-                    hitSlop={6}
-                    style={({ pressed }) => [styles.resendButton, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.resendText}>다시 보내기</Text>
-                  </Pressable>
+                  {isMine && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${call.menu} 다시 콜 보내기`}
+                      onPress={() => resend(call)}
+                      hitSlop={6}
+                      style={({ pressed }) => [styles.resendButton, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.resendText}>다시 보내기</Text>
+                    </Pressable>
+                  )}
                 </View>
               </Pressable>
-            ))}
+              );
+            })}
           </View>
         </View>
 
