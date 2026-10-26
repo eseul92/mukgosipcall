@@ -38,3 +38,4 @@ export {
   updateDisplayName,
 } from "./family";
 export {onCallCreated, onResponseCreated} from "./notifications";
+export {recommendDishes} from "./recommend";
