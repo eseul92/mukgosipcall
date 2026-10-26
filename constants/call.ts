@@ -12,6 +12,10 @@ export const REPLY_LABELS: Record<Reply, string> = {
 
 export const MEMO_PRESETS = ['오늘 저녁', '주말에', '매운 걸로', '간단하게'];
 
+export const RECOMMEND_NO_INGREDIENTS = '재료를 추가하면 만들 수 있는 요리를 알려드려요';
+export const RECOMMEND_NO_MATCH =
+  '맞는 요리를 찾지 못했어요. 자주 먹는 메뉴나 직접 입력으로 콜을 보내 보세요';
+
 export const FREQUENT_MENUS = [
   '김치찌개',
   '된장찌개',

@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { FREQUENT_MENUS } from '../constants/call';
+import { FREQUENT_MENUS, RECOMMEND_NO_INGREDIENTS, RECOMMEND_NO_MATCH } from '../constants/call';
 import { useFamilyData } from '../context/FamilyDataContext';
-import { RECIPES } from '../data/recipes';
+import useDishRecommendations from '../hooks/useDishRecommendations';
 import type { CallSource } from '../types/models';
 
 function goConfirm(menu: string, source: CallSource) {
@@ -12,7 +12,7 @@ function goConfirm(menu: string, source: CallSource) {
 
 export default function CallComposeScreen() {
   const { ingredients } = useFamilyData();
-  const ingredientNames = ingredients.map((item) => item.name);
+  const dishes = useDishRecommendations(ingredients.map((item) => item.name));
   const [text, setText] = useState('');
 
   const submitCustom = () => {
@@ -53,27 +53,26 @@ export default function CallComposeScreen() {
       <View>
         <Text style={styles.sectionTitle}>냉장고 재료로 만들 수 있어요</Text>
         {ingredients.length === 0 ? (
-          <Text style={styles.emptyText}>
-            냉장고에 등록된 재료가 없어요. 홈에서 재료를 추가하면 만들 수 있는 요리를 추천해드려요.
-          </Text>
+          <Text style={styles.emptyText}>{RECOMMEND_NO_INGREDIENTS}</Text>
+        ) : dishes === null ? null : dishes.length === 0 ? (
+          <Text style={styles.emptyText}>{RECOMMEND_NO_MATCH}</Text>
         ) : (
           <View style={styles.cards}>
-            {RECIPES.map((recipe) => {
-              const missing = recipe.ingredients.filter((item) => !ingredientNames.includes(item));
-              return (
-                <Pressable
-                  key={recipe.id}
-                  accessibilityRole="button"
-                  onPress={() => goConfirm(recipe.name, 'recommended')}
-                  style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-                >
-                  <Text style={styles.cardName}>{recipe.name}</Text>
-                  <Text style={[styles.cardMissing, missing.length === 0 && styles.cardComplete]}>
-                    {missing.length === 0 ? '재료가 모두 있어요' : `부족한 재료: ${missing.join(', ')}`}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {dishes.map((dish) => (
+              <Pressable
+                key={dish.name}
+                accessibilityRole="button"
+                onPress={() => goConfirm(dish.name, 'recommended')}
+                style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+              >
+                <Text style={styles.cardName}>{dish.name}</Text>
+                <Text style={[styles.cardMissing, dish.missing.length === 0 && styles.cardComplete]}>
+                  {dish.missing.length === 0
+                    ? '재료가 모두 있어요'
+                    : `부족한 재료: ${dish.missing.join(', ')}`}
+                </Text>
+              </Pressable>
+            ))}
           </View>
         )}
       </View>

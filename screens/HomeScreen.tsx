@@ -133,12 +133,7 @@ export default function HomeScreen() {
 
         <Pressable
           accessibilityRole="button"
-          onPress={() =>
-            router.push({
-              pathname: '/recipes',
-              params: { ingredients: ingredients.map((item) => item.name).join(',') },
-            })
-          }
+          onPress={() => router.push('/recipes')}
           style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
         >
           <Text style={styles.secondaryButtonText}>이 재료로 요리 추천받기</Text>

@@ -1,27 +1,34 @@
-import { useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { RECIPES } from '../data/recipes';
+import { RECOMMEND_NO_INGREDIENTS, RECOMMEND_NO_MATCH } from '../constants/call';
+import { useFamilyData } from '../context/FamilyDataContext';
+import useDishRecommendations from '../hooks/useDishRecommendations';
 
 export default function RecipesScreen() {
-  const { ingredients } = useLocalSearchParams<{ ingredients?: string }>();
-  const list = ingredients ? ingredients.split(',').filter(Boolean) : [];
+  const { ingredients } = useFamilyData();
+  const names = ingredients.map((item) => item.name);
+  const dishes = useDishRecommendations(names);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.subtitle}>
-        {list.length > 0 ? `${list.join(', ')}(으)로 만들 수 있어요` : '이런 요리는 어때요?'}
-      </Text>
+      {names.length > 0 && <Text style={styles.subtitle}>{names.join(', ')}(으)로 만들 수 있어요</Text>}
 
-      {RECIPES.map((recipe) => (
-        <View key={recipe.id} style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.name}>{recipe.name}</Text>
-            <Text style={styles.time}>{recipe.time}</Text>
+      {names.length === 0 ? (
+        <Text style={styles.subtitle}>{RECOMMEND_NO_INGREDIENTS}</Text>
+      ) : dishes === null ? null : dishes.length === 0 ? (
+        <Text style={styles.subtitle}>{RECOMMEND_NO_MATCH}</Text>
+      ) : (
+        dishes.map((dish) => (
+          <View key={dish.name} style={styles.card}>
+            <Text style={styles.name}>{dish.name}</Text>
+            <Text style={styles.description}>{dish.description}</Text>
+            <Text style={[styles.ingredients, dish.missing.length === 0 && styles.complete]}>
+              {dish.missing.length === 0
+                ? '재료가 모두 있어요'
+                : `부족한 재료: ${dish.missing.join(', ')}`}
+            </Text>
           </View>
-          <Text style={styles.description}>{recipe.description}</Text>
-          <Text style={styles.ingredients}>재료: {recipe.ingredients.join(', ')}</Text>
-        </View>
-      ))}
+        ))
+      )}
     </ScrollView>
   );
 }
@@ -47,19 +54,10 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 6,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
   name: {
     fontSize: 18,
     fontWeight: '700',
     color: '#111',
-  },
-  time: {
-    fontSize: 13,
-    color: '#6B7280',
   },
   description: {
     fontSize: 15,
@@ -69,5 +67,8 @@ const styles = StyleSheet.create({
   ingredients: {
     fontSize: 13,
     color: '#6B7280',
+  },
+  complete: {
+    color: '#16A34A',
   },
 });
