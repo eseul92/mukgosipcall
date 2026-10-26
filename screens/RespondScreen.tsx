@@ -7,7 +7,7 @@ import { formatRelativeTime } from '../utils/time';
 
 export default function RespondScreen() {
   const { callId } = useLocalSearchParams<{ callId?: string }>();
-  const { calls, respondToCall, getMemberName } = useFamilyData();
+  const { user, members, calls, respondToCall, getMemberName } = useFamilyData();
   const call = calls.find((c) => c.id === callId);
 
   if (!call) {
@@ -24,6 +24,7 @@ export default function RespondScreen() {
   };
 
   const senderName = getMemberName(call.senderId, call.senderName);
+  const isMine = call.senderId === user.id;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -40,6 +41,24 @@ export default function RespondScreen() {
         {call.memo ? <Text style={styles.memo}>{call.memo}</Text> : null}
       </View>
 
+      {isMine ? (
+        <View style={styles.status}>
+          <Text style={styles.statusTitle}>응답 현황</Text>
+          {members
+            .filter((member) => member.userId !== user.id)
+            .map((member) => {
+              const answer = call.responses.find((r) => r.userId === member.userId);
+              return (
+                <View key={member.userId} style={styles.statusRow}>
+                  <Text style={styles.statusName}>{member.name}</Text>
+                  <Text style={[styles.statusValue, !answer && styles.statusWaiting]}>
+                    {answer ? REPLY_LABELS[answer.value] : '아직 응답하지 않았어요'}
+                  </Text>
+                </View>
+              );
+            })}
+        </View>
+      ) : (
       <View style={styles.buttons}>
         {REPLIES.map((value) => (
           <Pressable
@@ -58,6 +77,7 @@ export default function RespondScreen() {
           </Pressable>
         ))}
       </View>
+      )}
     </ScrollView>
   );
 }
@@ -70,6 +90,33 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     gap: 28,
+  },
+  status: {
+    gap: 12,
+  },
+  statusTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  statusName: {
+    fontSize: 16,
+    color: '#111',
+  },
+  statusValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111',
+  },
+  statusWaiting: {
+    fontWeight: '400',
+    color: '#9CA3AF',
   },
   notFound: {
     padding: 24,

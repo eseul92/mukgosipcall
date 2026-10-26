@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { FamilyDataProvider } from '../../context/FamilyDataContext';
 import { AuthProvider, useAuth } from '../../context/AuthContext';
+import { PushProvider } from '../../context/PushContext';
 import { familyRepository } from '../../repositories';
 
 function RootStack() {
@@ -51,7 +52,9 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <FamilyDataProvider repository={familyRepository}>
-        <RootStack />
+        <PushProvider>
+          <RootStack />
+        </PushProvider>
       </FamilyDataProvider>
       <StatusBar style="dark" />
     </AuthProvider>

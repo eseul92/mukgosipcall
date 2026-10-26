@@ -24,6 +24,8 @@ export type FamilyState = {
   family: Family | null;
   /** 합류한 순서 */
   members: Member[];
+  /** 최신순. 가족이 없으면 빈 배열 */
+  calls: Call[];
 };
 
 // 화면은 이 인터페이스(를 감싼 FamilyDataContext)만 쓴다.
@@ -31,8 +33,6 @@ export type FamilyState = {
 export interface FamilyRepository {
   getCurrentUser(): Promise<User>;
   listIngredients(): Promise<Ingredient[]>;
-  /** 최신순. 가족이 없으면 빈 배열 */
-  listCalls(): Promise<Call[]>;
 
   // 화면은 결과값을 쓰지 않는다. 가족 상태는 subscribeFamily로 갱신된다.
   /** 실패하면 사용자에게 보여줄 문장을 message로 담아 reject */
@@ -45,10 +45,11 @@ export interface FamilyRepository {
   addIngredient(name: string): Promise<Ingredient>;
   removeIngredient(ingredientId: string): Promise<void>;
 
+  // 화면은 결과값을 쓰지 않는다. 콜 목록은 subscribeFamily로 갱신된다.
   /** 가족이 없으면 reject */
-  sendCall(input: SendCallInput): Promise<Call>;
+  sendCall(input: SendCallInput): Promise<unknown>;
   /** 같은 사용자가 다시 응답하면 이전 응답을 바꾼다 */
-  respondToCall(callId: string, value: Reply): Promise<Call>;
+  respondToCall(callId: string, value: Reply): Promise<unknown>;
 }
 
 /** 가족 상태를 실시간으로 구독할 수 있는 저장소 */

@@ -12,14 +12,15 @@ import type { FamilyState, RealtimeFamilyRepository, SendCallInput } from '../re
 import type { Call, Family, Ingredient, Member, Reply, User } from '../types/models';
 import { useAuth } from './AuthContext';
 
-// 가족 상태는 구독으로 오고, 나머지는 변경 뒤에 다시 읽는다.
+// 가족 상태와 콜은 구독으로 오고, 나머지는 변경 뒤에 다시 읽는다.
 type Snapshot = {
   user: User;
   ingredients: Ingredient[];
-  calls: Call[];
 };
 
 type FamilyDataValue = Snapshot & {
+  /** 최신순 */
+  calls: Call[];
   family: Family | null;
   /** users/{uid}.familyId. 가족이 없으면 null */
   familyId: string | null;
@@ -42,7 +43,7 @@ type FamilyDataValue = Snapshot & {
 const FamilyDataContext = createContext<FamilyDataValue | null>(null);
 
 const SIGNED_OUT_USER: User = { id: '', name: '나' };
-const EMPTY_FAMILY_STATE: FamilyState = { familyId: null, family: null, members: [] };
+const EMPTY_FAMILY_STATE: FamilyState = { familyId: null, family: null, members: [], calls: [] };
 
 // 구독이 결과를 반영하길 기다리는 최대 시간. 넘기면 기다리지 않고 진행한다.
 const SYNC_TIMEOUT_MS = 5000;
@@ -66,13 +67,12 @@ export function FamilyDataProvider({
 
   const refresh = useCallback(async () => {
     const started = generation.current;
-    const [user, ingredients, calls] = await Promise.all([
+    const [user, ingredients] = await Promise.all([
       repository.getCurrentUser(),
       repository.listIngredients(),
-      repository.listCalls(),
     ]);
     if (started !== generation.current) return;
-    setSnapshot({ user, ingredients, calls });
+    setSnapshot({ user, ingredients });
   }, [repository]);
 
   const resetAll = useCallback(() => {
@@ -80,7 +80,7 @@ export function FamilyDataProvider({
     repository.reset();
     latestFamilyId.current = null;
     setFamilyState(EMPTY_FAMILY_STATE);
-    setSnapshot({ user: SIGNED_OUT_USER, ingredients: [], calls: [] });
+    setSnapshot({ user: SIGNED_OUT_USER, ingredients: [] });
   }, [repository]);
 
   useEffect(
@@ -93,7 +93,7 @@ export function FamilyDataProvider({
     [repository],
   );
 
-  // 사용자나 가족이 바뀌면 사용자 정보와 콜을 다시 읽는다.
+  // 사용자나 가족이 바뀌면 사용자 정보와 재료를 다시 읽는다.
   const familyId = familyState?.familyId ?? null;
   useEffect(() => {
     refresh();
@@ -130,6 +130,7 @@ export function FamilyDataProvider({
 
     return {
       ...snapshot,
+      calls: familyState.calls,
       family: familyState.family,
       familyId: familyState.familyId,
       members: familyState.members,
@@ -150,8 +151,13 @@ export function FamilyDataProvider({
       },
       addIngredient: (name) => mutate(() => repository.addIngredient(name)),
       removeIngredient: (id) => mutate(() => repository.removeIngredient(id)),
-      sendCall: (input) => mutate(() => repository.sendCall(input)),
-      respondToCall: (callId, reply) => mutate(() => repository.respondToCall(callId, reply)),
+      // 콜 목록은 구독이 갱신하므로 다시 읽지 않는다.
+      sendCall: async (input) => {
+        await repository.sendCall(input);
+      },
+      respondToCall: async (callId, reply) => {
+        await repository.respondToCall(callId, reply);
+      },
       resetAll,
     };
   }, [snapshot, familyState, repository, refresh, waitForFamily, resetAll]);

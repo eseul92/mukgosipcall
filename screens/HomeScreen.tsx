@@ -10,6 +10,7 @@ import Toast from '../components/Toast';
 import { REPLY_LABELS } from '../constants/call';
 import { useAuth } from '../context/AuthContext';
 import { useFamilyData } from '../context/FamilyDataContext';
+import { usePush } from '../context/PushContext';
 import useLoginHandlers from '../hooks/useLoginHandlers';
 import useToast from '../hooks/useToast';
 import { formatRelativeTime } from '../utils/time';
@@ -35,6 +36,7 @@ const PROMPTS: Record<Action, { title: string; description: string }> = {
 
 export default function HomeScreen() {
   const { isGuest } = useAuth();
+  const { permission, openSettings } = usePush();
   const { user, ingredients, addIngredient, removeIngredient, calls, hasFamily, getMemberName } =
     useFamilyData();
   const [needFamily, setNeedFamily] = useState(false);
@@ -94,6 +96,22 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         </View>
+
+        {permission === 'blocked' && (
+          <View style={styles.notice}>
+            <View style={styles.noticeBody}>
+              <Text style={styles.noticeTitle}>알림이 꺼져 있어요</Text>
+              <Text style={styles.noticeText}>가족이 보낸 콜을 바로 받으려면 알림을 켜 주세요.</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openSettings}
+              style={({ pressed }) => [styles.noticeButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.noticeButtonText}>설정 열기</Text>
+            </Pressable>
+          </View>
+        )}
 
         <View style={styles.heroCard}>
           <Text style={styles.heroLabel}>오늘의 한 끼</Text>
@@ -222,6 +240,42 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     gap: 28,
+  },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    padding: 16,
+  },
+  noticeBody: {
+    flex: 1,
+    gap: 2,
+  },
+  noticeTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111',
+  },
+  noticeText: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  noticeButton: {
+    paddingHorizontal: 14,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noticeButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111',
   },
   titleActions: {
     flexDirection: 'row',

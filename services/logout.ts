@@ -1,5 +1,6 @@
 import { signOutGoogle } from './authService';
 import { pauseAllListeners } from './listenerRegistry';
+import { removeDeviceToken } from './pushNotifications';
 
 export type LogoutDeps = {
   /** Firebase Auth 로그아웃. 실패하면 reject */
@@ -26,7 +27,9 @@ export async function performLogout({ signOut, resetAppState }: LogoutDeps) {
   // a. 모든 Firestore 실시간 구독 해제
   const resumeListeners = pauseAllListeners();
 
-  // TODO: 푸시 토큰 제거는 여기에 추가한다. 아직 로그인된 상태여야 서버에서 지울 수 있다.
+  // 푸시 토큰 제거: 이 기기의 토큰을 fcmTokens에서 지워 이전 계정에 알림이 가지 않게 한다.
+  // 아직 로그인된 상태여야 지울 수 있어서 signOut보다 먼저 한다. 실패해도 로그아웃은 계속한다.
+  await bestEffort('푸시 토큰 제거', removeDeviceToken);
 
   // b. 구글 로그인 세션 끊기 (다음 로그인에서 계정 선택 창이 뜬다)
   await bestEffort('Google signOut', signOutGoogle);
