@@ -8,9 +8,16 @@ import type { CallSource, MealType } from '../types/models';
 const SOURCES: CallSource[] = ['recommended', 'frequent', 'custom'];
 
 export default function CallConfirmScreen() {
-  const { menu, source } = useLocalSearchParams<{ menu?: string; source?: string }>();
+  const {
+    menu,
+    source,
+    mealType: initialMealType,
+  } = useLocalSearchParams<{ menu?: string; source?: string; mealType?: string }>();
   const { sendCall } = useFamilyData();
-  const [mealType, setMealType] = useState<MealType>(MEAL_TYPES[0]);
+  // 다시 보내기에서는 이전 콜의 식사 종류를 미리 골라 둔다.
+  const [mealType, setMealType] = useState<MealType>(
+    MEAL_TYPES.find((t) => t === initialMealType) ?? MEAL_TYPES[0],
+  );
   const [memo, setMemo] = useState('');
 
   const callSource = SOURCES.find((s) => s === source) ?? 'custom';

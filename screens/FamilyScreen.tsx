@@ -34,6 +34,13 @@ export default function FamilyScreen() {
       ? '응답 대기 중'
       : call.responses.map((r) => `${getMemberName(r.userId, r.userName)} ${REPLY_LABELS[r.value]}`).join(' · ');
 
+  // 바로 보내지 않고 확인 화면에서 '콜 보내기'를 눌러야 새 콜이 만들어진다. 메모는 비워 둔다.
+  const resend = (call: Call) =>
+    router.push({
+      pathname: '/call-confirm',
+      params: { menu: call.menu, mealType: call.mealType, source: 'frequent' },
+    });
+
   const copyCode = async () => {
     if (!family) return;
     try {
@@ -209,6 +216,7 @@ export default function FamilyScreen() {
                 key={call.id}
                 accessibilityRole="button"
                 onPress={() => router.push({ pathname: '/respond', params: { callId: call.id } })}
+                onLongPress={() => resend(call)}
                 style={({ pressed }) => [styles.row, pressed && styles.pressed]}
               >
                 <View style={styles.avatar}>
@@ -220,7 +228,18 @@ export default function FamilyScreen() {
                     {responseSummary(call)}
                   </Text>
                 </View>
-                <Text style={styles.callTime}>{formatRelativeTime(call.createdAt)}</Text>
+                <View style={styles.callSide}>
+                  <Text style={styles.callTime}>{formatRelativeTime(call.createdAt)}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${call.menu} 다시 콜 보내기`}
+                    onPress={() => resend(call)}
+                    hitSlop={6}
+                    style={({ pressed }) => [styles.resendButton, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.resendText}>다시 보내기</Text>
+                  </Pressable>
+                </View>
               </Pressable>
             ))}
           </View>
@@ -435,9 +454,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
   },
+  callSide: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
   callTime: {
     fontSize: 13,
     color: '#6B7280',
+  },
+  resendButton: {
+    paddingHorizontal: 10,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resendText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
   },
   leaveButton: {
     alignSelf: 'center',
