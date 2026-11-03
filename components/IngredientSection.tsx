@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { Ingredient } from '../types/models';
@@ -8,9 +9,17 @@ type Props = {
   onAdd: (name: string) => void;
   onRemove: (ingredientId: string) => void;
   nameMax?: number;
+  /** 있으면 제목 옆에 '영수증으로 추가' 버튼을 보여 준다 */
+  onScanReceipt?: () => void;
 };
 
-export default function IngredientSection({ ingredients, onAdd, onRemove, nameMax }: Props) {
+export default function IngredientSection({
+  ingredients,
+  onAdd,
+  onRemove,
+  nameMax,
+  onScanReceipt,
+}: Props) {
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
   // 닫히는 애니메이션 동안에도 재료 이름이 남도록, 대상은 비우지 않고 표시 여부만 끈다.
@@ -30,7 +39,20 @@ export default function IngredientSection({ ingredients, onAdd, onRemove, nameMa
 
   return (
     <View>
-      <Text style={styles.sectionTitle}>냉장고 재료</Text>
+      <View style={styles.header}>
+        <Text style={[styles.sectionTitle, styles.sectionTitleInline]}>냉장고 재료</Text>
+        {onScanReceipt && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onScanReceipt}
+            hitSlop={6}
+            style={({ pressed }) => [styles.scanButton, pressed && styles.pressed]}
+          >
+            <Ionicons name="receipt-outline" size={16} color="#FF5A5F" />
+            <Text style={styles.scanButtonText}>영수증으로 추가</Text>
+          </Pressable>
+        )}
+      </View>
 
       <View style={styles.chips}>
         {ingredients.map((ingredient) => (
@@ -91,11 +113,31 @@ export default function IngredientSection({ ingredients, onAdd, onRemove, nameMa
 }
 
 const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 12,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#111',
     marginBottom: 12,
+  },
+  sectionTitleInline: {
+    marginBottom: 0,
+  },
+  scanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  scanButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF5A5F',
   },
   chips: {
     flexDirection: 'row',

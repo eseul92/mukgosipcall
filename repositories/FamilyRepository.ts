@@ -57,6 +57,11 @@ export interface FamilyRepository {
   leaveFamily(): Promise<void>;
 
   addIngredient(name: string): Promise<Ingredient>;
+  /**
+   * 이미 정리·검증된 이름들을 한 번에 더한다(영수증 스캔). 최대 RECEIPT_MAX_SAVE개.
+   * 가족이 있으면 한 번의 writeBatch라서 전부 저장되거나 전부 실패한다.
+   */
+  addIngredients(names: string[]): Promise<void>;
   removeIngredient(ingredientId: string): Promise<void>;
 
   // 화면은 결과값을 쓰지 않는다. 콜 목록은 subscribeFamily로 갱신된다.

@@ -191,6 +191,10 @@ export class DummyFamilyRepository implements FamilyRepository {
     return ingredient;
   }
 
+  async addIngredients(names: string[]) {
+    for (const name of names) await this.addIngredient(name);
+  }
+
   async removeIngredient(ingredientId: string) {
     this.ingredients = this.ingredients.filter((i) => i.id !== ingredientId);
   }

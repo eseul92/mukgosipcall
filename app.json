@@ -35,7 +35,16 @@
       "@react-native-firebase/auth",
       "@react-native-google-signin/google-signin",
       "@react-native-firebase/messaging",
-      "./plugins/withNotificationChannel"
+      "./plugins/withNotificationChannel",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "영수증을 찍어 냉장고 재료를 넣으려면 카메라가 필요해요.",
+          "photosPermission": "영수증 사진을 골라 냉장고 재료를 넣으려면 사진 접근이 필요해요.",
+          "microphonePermission": false
+        }
+      ],
+      "./plugins/withMlkitKoreanModel"
     ],
     "extra": {
       "router": {},

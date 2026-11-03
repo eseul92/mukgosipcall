@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.receiptocr'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.receiptocr"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // ML Kit 한국어 텍스트 인식(Google Play 서비스 모델). 모델은 APK에 넣지 않고 기기에 받아 둔다.
+  // 설치할 때 미리 받게 하는 설정은 plugins/withMlkitKoreanModel.js에 있다.
+  implementation 'com.google.android.gms:play-services-mlkit-text-recognition-korean:16.0.1'
+}

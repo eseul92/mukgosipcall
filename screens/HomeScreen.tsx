@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -46,6 +46,14 @@ export default function HomeScreen() {
   const { error: loginError, clearError, onGoogle } = useLoginHandlers((notice) =>
     showToast(notice, 4000),
   );
+
+  // 다른 화면(영수증 스캔 등)이 홈으로 돌아오며 남긴 안내를 한 번 보여 주고 지운다.
+  const { notice } = useLocalSearchParams<{ notice?: string }>();
+  useEffect(() => {
+    if (!notice) return;
+    showToast(notice, 2500);
+    router.setParams({ notice: undefined });
+  }, [notice, showToast]);
 
   // 재료는 저장이 끝나면 구독이 목록을 갱신한다. 실패하면 알려 준다.
   const saveIngredient = (work: () => Promise<void>) =>
@@ -138,6 +146,7 @@ export default function HomeScreen() {
           onAdd={(name) => saveIngredient(() => addIngredient(name))}
           onRemove={(id) => saveIngredient(() => removeIngredient(id))}
           nameMax={SHOPPING_NAME_MAX}
+          onScanReceipt={() => router.push('/receipt')}
         />
 
         <Pressable

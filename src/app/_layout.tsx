@@ -24,6 +24,10 @@ function RootStack() {
           options={{ headerShown: true, title: '요리 추천', headerBackTitle: '홈' }}
         />
         <Stack.Screen
+          name="receipt"
+          options={{ headerShown: true, title: '영수증으로 추가', headerBackTitle: '뒤로' }}
+        />
+        <Stack.Screen
           name="call"
           options={{ headerShown: true, title: '콜 보내기', headerBackTitle: '홈' }}
         />

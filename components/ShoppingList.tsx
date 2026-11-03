@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -226,11 +227,22 @@ export default function ShoppingList() {
           )}
         </View>
 
-        {done.length > 0 && (
-          <View>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, styles.sectionTitleInline]}>산 것</Text>
-              <View style={styles.headerActions}>
+        <View>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, styles.sectionTitleInline]}>산 것</Text>
+            <View style={styles.headerActions}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={anyBusy}
+                onPress={() => router.push('/receipt')}
+                hitSlop={6}
+                style={({ pressed }) => [styles.receiptAction, pressed && styles.pressed]}
+              >
+                <Ionicons name="receipt-outline" size={14} color="#FF5A5F" />
+                <Text style={[styles.headerAction, anyBusy && styles.disabled]}>영수증으로 추가</Text>
+              </Pressable>
+              {done.length > 0 && (
+                <>
                 <Pressable
                   accessibilityRole="button"
                   disabled={anyBusy}
@@ -259,11 +271,16 @@ export default function ShoppingList() {
                     모두 지우기
                   </Text>
                 </Pressable>
-              </View>
+                </>
+              )}
             </View>
-            <View style={styles.list}>{done.map(renderRow)}</View>
           </View>
-        )}
+          {done.length === 0 ? (
+            <Text style={styles.empty}>체크한 것이 여기에 모여요</Text>
+          ) : (
+            <View style={styles.list}>{done.map(renderRow)}</View>
+          )}
+        </View>
       </ScrollView>
 
       <Toast message={toast} />
@@ -391,6 +408,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#FF5A5F',
+  },
+  receiptAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   headerActionMuted: {
     color: '#6B7280',

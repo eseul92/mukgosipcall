@@ -72,3 +72,12 @@ export interface ShoppingItem {
 }
 
 export type ShoppingStatus = 'loading' | 'ready' | 'error';
+
+/** 영수증에서 뽑은 품목. 확인 화면에서 고친 뒤 냉장고 재료로 넣는다. */
+export interface ReceiptItem {
+  name: string;
+  /** 냉장고에 넣을지. 식품이 아니거나 이미 있으면 false로 시작한다 */
+  checked: boolean;
+  /** 체크를 풀어 둔 이유. 이름 아래에 작게 보여 준다 */
+  reason?: string;
+}

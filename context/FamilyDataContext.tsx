@@ -19,6 +19,7 @@ import type {
   ShoppingStatus,
   User,
 } from '../types/models';
+import { RECEIPT_MAX_SAVE, RECEIPT_TOO_MANY_MESSAGE } from '../constants/receipt';
 import { SHOPPING_DUPLICATE_MESSAGE } from '../constants/shopping';
 import {
   normalizeShoppingName,
@@ -52,6 +53,12 @@ type FamilyDataValue = Snapshot & {
   joinFamily: (inviteCode: string) => Promise<void>;
   leaveFamily: () => Promise<void>;
   addIngredient: (name: string) => Promise<void>;
+  /**
+   * 여러 재료를 한 번에 넣는다(영수증 스캔). 이름은 정리해서 1~20자만, 냉장고에 이미 있거나
+   * 서로 겹치는 이름은 한 번만 넣는다. 넣은 개수를 돌려준다.
+   * RECEIPT_MAX_SAVE개를 넘거나 저장에 실패하면 reject.
+   */
+  addIngredients: (names: string[]) => Promise<number>;
   removeIngredient: (ingredientId: string) => Promise<void>;
   sendCall: (input: SendCallInput) => Promise<void>;
   respondToCall: (callId: string, value: Reply) => Promise<void>;
@@ -208,6 +215,21 @@ export function FamilyDataProvider({
           return;
         }
         await mutate(() => repository.addIngredient(name));
+      },
+      addIngredients: async (rawNames) => {
+        if (rawNames.length > RECEIPT_MAX_SAVE) throw new Error(RECEIPT_TOO_MANY_MESSAGE);
+        const current = familyState.familyId ? familyState.ingredients : snapshot.ingredients;
+        const seen = new Set(current.map((item) => shoppingNameKey(item.name)));
+        const names: string[] = [];
+        for (const raw of rawNames) {
+          const name = normalizeShoppingName(raw);
+          const key = shoppingNameKey(name);
+          if (validateShoppingName(name) || seen.has(key)) continue;
+          seen.add(key);
+          names.push(name);
+        }
+        if (names.length > 0) await mutate(() => repository.addIngredients(names));
+        return names.length;
       },
       removeIngredient: (id) => mutate(() => repository.removeIngredient(id)),
       // 콜 목록은 구독이 갱신하므로 다시 읽지 않는다.

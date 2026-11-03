@@ -15,6 +15,7 @@ import {
   updateDoc,
   writeBatch,
 } from '@react-native-firebase/firestore';
+import { RECEIPT_MAX_SAVE, RECEIPT_TOO_MANY_MESSAGE } from '../constants/receipt';
 import { callFunction } from '../services/callable';
 import { startTracked } from '../services/listenerRegistry';
 import { shoppingNameKey } from '../utils/shopping';
@@ -518,6 +519,26 @@ export class FirebaseFamilyRepository implements RealtimeFamilyRepository {
       createdAt: serverTimestamp(),
     });
     return { id: ref.id, name, addedBy: uid, createdAt: Date.now() };
+  }
+
+  // 규칙상 재료는 name, addedBy(본인), createdAt(서버 시각)만 쓸 수 있다.
+  async addIngredients(names: string[]) {
+    if (names.length > RECEIPT_MAX_SAVE) throw new Error(RECEIPT_TOO_MANY_MESSAGE);
+    const familyId = this.familyId;
+    const uid = getAuth().currentUser?.uid;
+    if (!familyId || !uid) return this.dummy.addIngredients(names);
+    if (names.length === 0) return;
+
+    const db = getFirestore();
+    const batch = writeBatch(db);
+    for (const name of names) {
+      batch.set(doc(collection(db, 'families', familyId, 'ingredients')), {
+        name,
+        addedBy: uid,
+        createdAt: serverTimestamp(),
+      });
+    }
+    await batch.commit();
   }
 
   async removeIngredient(ingredientId: string) {
