@@ -1,5 +1,3 @@
-import { View } from 'react-native';
+import ShoppingScreen from '../../../screens/ShoppingScreen';
 
-export default function ShoppingTab() {
-  return <View style={{ flex: 1, backgroundColor: '#fff' }} />;
-}
+export default ShoppingScreen;

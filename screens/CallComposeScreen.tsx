@@ -1,9 +1,13 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import AddMissingButton from '../components/AddMissingButton';
+import Toast from '../components/Toast';
 import { FREQUENT_MENUS, RECOMMEND_NO_INGREDIENTS, RECOMMEND_NO_MATCH } from '../constants/call';
 import { useFamilyData } from '../context/FamilyDataContext';
+import useAddMissingToShopping from '../hooks/useAddMissingToShopping';
 import useDishRecommendations from '../hooks/useDishRecommendations';
+import useToast from '../hooks/useToast';
 import type { CallSource } from '../types/models';
 
 function goConfirm(menu: string, source: CallSource) {
@@ -14,6 +18,8 @@ export default function CallComposeScreen() {
   const { ingredients } = useFamilyData();
   const dishes = useDishRecommendations(ingredients.map((item) => item.name));
   const [text, setText] = useState('');
+  const { message: toast, show: showToast } = useToast();
+  const { addMissing, busyDish, dialogs } = useAddMissingToShopping(showToast);
 
   const submitCustom = () => {
     const menu = text.trim();
@@ -21,8 +27,9 @@ export default function CallComposeScreen() {
   };
 
   return (
+    <View style={styles.container}>
     <ScrollView
-      style={styles.container}
+      style={styles.scroll}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
@@ -59,19 +66,28 @@ export default function CallComposeScreen() {
         ) : (
           <View style={styles.cards}>
             {dishes.map((dish) => (
-              <Pressable
-                key={dish.name}
-                accessibilityRole="button"
-                onPress={() => goConfirm(dish.name, 'recommended')}
-                style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-              >
-                <Text style={styles.cardName}>{dish.name}</Text>
-                <Text style={[styles.cardMissing, dish.missing.length === 0 && styles.cardComplete]}>
-                  {dish.missing.length === 0
-                    ? '재료가 모두 있어요'
-                    : `부족한 재료: ${dish.missing.join(', ')}`}
-                </Text>
-              </Pressable>
+              <View key={dish.name} style={styles.card}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => goConfirm(dish.name, 'recommended')}
+                  style={({ pressed }) => [styles.cardBody, pressed && styles.pressed]}
+                >
+                  <Text style={styles.cardName}>{dish.name}</Text>
+                  <Text
+                    style={[styles.cardMissing, dish.missing.length === 0 && styles.cardComplete]}
+                  >
+                    {dish.missing.length === 0
+                      ? '재료가 모두 있어요'
+                      : `부족한 재료: ${dish.missing.join(', ')}`}
+                  </Text>
+                </Pressable>
+                {dish.missing.length > 0 && (
+                  <AddMissingButton
+                    loading={busyDish === dish.name}
+                    onPress={() => addMissing(dish)}
+                  />
+                )}
+              </View>
             ))}
           </View>
         )}
@@ -98,6 +114,9 @@ export default function CallComposeScreen() {
         </ScrollView>
       </View>
     </ScrollView>
+    <Toast message={toast} />
+    {dialogs}
+    </View>
   );
 }
 
@@ -105,6 +124,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scroll: {
+    flex: 1,
   },
   content: {
     padding: 24,
@@ -163,6 +185,8 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderRadius: 14,
     padding: 16,
+  },
+  cardBody: {
     gap: 4,
   },
   cardName: {

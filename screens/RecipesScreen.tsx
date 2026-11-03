@@ -1,15 +1,22 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import AddMissingButton from '../components/AddMissingButton';
+import Toast from '../components/Toast';
 import { RECOMMEND_NO_INGREDIENTS, RECOMMEND_NO_MATCH } from '../constants/call';
 import { useFamilyData } from '../context/FamilyDataContext';
+import useAddMissingToShopping from '../hooks/useAddMissingToShopping';
 import useDishRecommendations from '../hooks/useDishRecommendations';
+import useToast from '../hooks/useToast';
 
 export default function RecipesScreen() {
   const { ingredients } = useFamilyData();
   const names = ingredients.map((item) => item.name);
   const dishes = useDishRecommendations(names);
+  const { message: toast, show: showToast } = useToast();
+  const { addMissing, busyDish, dialogs } = useAddMissingToShopping(showToast);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={styles.container}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       {names.length > 0 && <Text style={styles.subtitle}>{names.join(', ')}(으)로 만들 수 있어요</Text>}
 
       {names.length === 0 ? (
@@ -26,10 +33,19 @@ export default function RecipesScreen() {
                 ? '재료가 모두 있어요'
                 : `부족한 재료: ${dish.missing.join(', ')}`}
             </Text>
+            {dish.missing.length > 0 && (
+              <AddMissingButton
+                loading={busyDish === dish.name}
+                onPress={() => addMissing(dish)}
+              />
+            )}
           </View>
         ))
       )}
     </ScrollView>
+    <Toast message={toast} />
+    {dialogs}
+    </View>
   );
 }
 
@@ -37,6 +53,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scroll: {
+    flex: 1,
   },
   content: {
     padding: 24,

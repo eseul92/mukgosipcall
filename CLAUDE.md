@@ -39,14 +39,26 @@ Expo 규칙(문서 확인, `npx expo install`, 라우팅 등)은 `AGENTS.md`를 
 | `families/{id}/calls/{callId}` | `senderUid`, `menu`(1~50자), `mode`(`make`/`eatout`/`delivery`), `source`, `memo?`, `createdAt`(서버 시각) | 멤버가 읽기·생성, 삭제는 보낸 사람만, 수정 불가 | `onCallCreated`가 읽음 |
 | `calls/{callId}/responses/{uid}` | 문서 ID가 응답자 uid. `type`(`cook`/`eatout`/`later`), `createdAt` | 멤버가 읽기, 본인 uid로만 생성·수정·삭제 | `onResponseCreated`가 읽음 |
 | `families/{id}/ingredients/{id}` | 공용 재료. `name`, `addedBy`, `createdAt` | 멤버가 읽기·생성(`addedBy`=본인)·수정·삭제 | — |
+| `families/{id}/shoppingItems/{id}` | 공용 장보기 목록. `name`(1~20자), `addedBy`, `done`, `doneBy?`, `fromMenu?`, `createdAt`(서버 시각) | 멤버가 읽기·삭제. 생성은 `name`·`addedBy`(본인)·`done: false`·`fromMenu?`·`createdAt`만. 수정은 `done`·`doneBy`(본인)만 | — |
 | `families/{id}/menuStats/{menu}` | 메뉴 통계 | 멤버가 읽기만 | 쓰기(아직 쓰는 코드 없음) |
 | `invites/{code}` | `familyId`, `createdBy`, `active`, `createdAt` | 접근 불가 | 쓰기 |
 | `aiUsage/{uid_YYYYMMDD}` | AI 추천 하루 호출 횟수 `count`(서울 날짜 기준) | 접근 불가 | `recommendDishes`가 쓰기 |
 
 - `rateLimits/{uid}`(가족 참여 시도 제한, 1시간 10회)와 `recommendCache/{key}`는 규칙에 항목이 없어 기본 거부이고 Admin SDK만 쓴다.
-- **재료 UI는 아직 `DummyFamilyRepository`(메모리)다.** 규칙상 `ingredients` 경로는 열려 있지만 앱이 연결하지 않았다.
+- **재료(`ingredients`)는 가족이 있으면 Firestore**를 `subscribeFamily`로 구독하고(`FamilyState.ingredients`, `createdAt` 오름차순), 추가·삭제도 Firestore에 직접 쓴다(추가는 `name`, `addedBy`, `createdAt`만). **가족이 없는 사용자(게스트 포함)의 재료만 `DummyFamilyRepository`(메모리)** 에 있고 앱을 다시 켜면 시드로 돌아간다. 같은 이름(공백 제거·소문자)은 다시 넣지 않고, 이름은 20자까지.
 - Firestore는 `undefined` 값을 받지 않는다. 선택 필드는 값이 있을 때만 넣는다. 쓸 때는 `serverTimestamp()`, 읽을 때는 `data({serverTimestamps: 'estimate'})`.
 - 앱의 `MealType`(`만들어줘`/`사먹자`/`시켜먹자`)과 서버의 `mode`는 `FirebaseFamilyRepository`에서 서로 바꾼다.
+
+## 장보기 (shoppingItems)
+
+- 구독: `FirebaseFamilyRepository`가 `orderBy('createdAt', 'asc')`로 `subscribeFamily`에 함께 구독한다(`FamilyState.shoppingItems`, `shoppingStatus`: `loading`/`ready`/`error`). 화면은 `useFamilyData`로만 읽고 쓴다.
+- **체크·해제는 `done`과 `doneBy`(현재 uid) 두 필드만 `updateDoc`으로 바꾼다.** 이름 등 다른 필드를 같이 넣으면 규칙이 거부한다.
+- 추가: 이름은 앞뒤 공백 제거 + 연속 공백 하나로 정리한 뒤 1~20자(`utils/shopping.ts`). 같은 이름 비교는 공백 제거 + 소문자이고, **`done`이 false인 항목끼리만** 중복으로 본다. 저장 필드는 `name`, `addedBy`, `done: false`, `createdAt: serverTimestamp()`, 있으면 `fromMenu`뿐이다. 다른 필드를 넣으면 규칙이 거부한다.
+- 여러 항목을 쓰거나 지울 때(추천 카드 추가, 모두 지우기, 냉장고에 넣기)는 `writeBatch`를 쓰고, 500개 제한 때문에 나눠서 보낸다.
+- 냉장고에 넣기: `ingredients`에 `name`, `addedBy`, `createdAt`을 더하고 항목을 지운다. 같은 이름(공백 제거·소문자)의 재료가 Firestore에 이미 있으면 재료는 더하지 않고 항목만 지운다.
+- 추천 카드의 "부족한 재료 장보기에 추가"는 `hooks/useAddMissingToShopping`이 맡는다. 게스트·가족 없음이면 담지 않고 안내를 띄운다.
+- 화면은 `ShoppingScreen`(게스트 / 가족 없음 / 목록 세 상태) → `components/ShoppingList`. 같은 동작은 끝나기 전에 다시 눌러도 한 번만 보낸다.
+- 냉장고에 넣은 재료는 구독으로 홈의 "냉장고 재료"와 요리 추천에 바로 반영된다.
 
 ## 가족 소속과 닉네임은 Cloud Functions로만 바꾼다
 
@@ -100,6 +112,5 @@ Expo 규칙(문서 확인, `npx expo install`, 라우팅 등)은 `AGENTS.md`를 
 
 ## 아직 안 한 것
 
-- 재료를 Firestore에 연결(`ingredients` 구독을 `subscribeFamily`에 합치는 방식으로).
 - AI 추천 연결(`ANTHROPIC_API_KEY` 설정 → Functions 배포 → `dishRecommender` 교체).
 - preview/production 빌드, `eas update` 설정.

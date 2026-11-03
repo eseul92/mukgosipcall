@@ -9,10 +9,26 @@ import {
   useState,
 } from 'react';
 import type { FamilyState, RealtimeFamilyRepository, SendCallInput } from '../repositories';
-import type { Call, Family, Ingredient, Member, Reply, User } from '../types/models';
+import type {
+  Call,
+  Family,
+  Ingredient,
+  Member,
+  Reply,
+  ShoppingItem,
+  ShoppingStatus,
+  User,
+} from '../types/models';
+import { SHOPPING_DUPLICATE_MESSAGE } from '../constants/shopping';
+import {
+  normalizeShoppingName,
+  planShoppingAdditions,
+  shoppingNameKey,
+  validateShoppingName,
+} from '../utils/shopping';
 import { useAuth } from './AuthContext';
 
-// 가족 상태와 콜은 구독으로 오고, 나머지는 변경 뒤에 다시 읽는다.
+// 가족 상태, 콜, 장보기, 가족의 재료는 구독으로 오고, 사용자와 가족 없는 사용자의 재료는 변경 뒤에 다시 읽는다.
 type Snapshot = {
   user: User;
   ingredients: Ingredient[];
@@ -25,6 +41,9 @@ type FamilyDataValue = Snapshot & {
   /** users/{uid}.familyId. 가족이 없으면 null */
   familyId: string | null;
   members: Member[];
+  /** 만든 순서(오래된 것부터) */
+  shoppingItems: ShoppingItem[];
+  shoppingStatus: ShoppingStatus;
   /** users/{uid}에 familyId가 있으면 true. family 문서를 읽는 중에도 true */
   hasFamily: boolean;
   /** 멤버 목록의 현재 이름. 못 찾으면(나간 사람) 저장돼 있던 이름, 그것도 없으면 '가족' */
@@ -36,6 +55,22 @@ type FamilyDataValue = Snapshot & {
   removeIngredient: (ingredientId: string) => Promise<void>;
   sendCall: (input: SendCallInput) => Promise<void>;
   respondToCall: (callId: string, value: Reply) => Promise<void>;
+  /**
+   * 장보기에 담는다. 이름이 규칙에 맞지 않거나 목록에 이미 있으면 저장하지 않고
+   * 보여 줄 문장을 돌려준다. 저장되면 null. 저장에 실패하면 reject.
+   */
+  addShoppingItem: (name: string, fromMenu?: string) => Promise<string | null>;
+  /** 이미 목록에 있거나 규칙에 맞지 않는 이름은 건너뛴다. */
+  addShoppingItems: (
+    names: string[],
+    fromMenu: string,
+  ) => Promise<{ added: number; skipped: number }>;
+  setShoppingItemDone: (itemId: string, done: boolean) => Promise<void>;
+  removeShoppingItem: (itemId: string) => Promise<void>;
+  /** 산 것(done) 항목을 모두 지운다. */
+  clearDoneShoppingItems: () => Promise<void>;
+  /** 냉장고 재료로 옮긴다. 새로 더한 재료 수를 돌려준다. */
+  moveShoppingItemsToFridge: (itemIds: string[]) => Promise<number>;
   /** 로그아웃할 때 사용자, 가족, 콜, 재료 상태를 모두 비운다. */
   resetAll: () => void;
 };
@@ -43,7 +78,15 @@ type FamilyDataValue = Snapshot & {
 const FamilyDataContext = createContext<FamilyDataValue | null>(null);
 
 const SIGNED_OUT_USER: User = { id: '', name: '나' };
-const EMPTY_FAMILY_STATE: FamilyState = { familyId: null, family: null, members: [], calls: [] };
+const EMPTY_FAMILY_STATE: FamilyState = {
+  familyId: null,
+  family: null,
+  members: [],
+  calls: [],
+  ingredients: [],
+  shoppingItems: [],
+  shoppingStatus: 'ready',
+};
 
 // 구독이 결과를 반영하길 기다리는 최대 시간. 넘기면 기다리지 않고 진행한다.
 const SYNC_TIMEOUT_MS = 5000;
@@ -130,10 +173,14 @@ export function FamilyDataProvider({
 
     return {
       ...snapshot,
+      // 가족이 있으면 구독한 재료, 없으면(게스트 포함) 메모리 재료
+      ingredients: familyState.familyId ? familyState.ingredients : snapshot.ingredients,
       calls: familyState.calls,
       family: familyState.family,
       familyId: familyState.familyId,
       members: familyState.members,
+      shoppingItems: familyState.shoppingItems,
+      shoppingStatus: familyState.shoppingStatus,
       hasFamily: familyState.familyId !== null,
       getMemberName: (userId, savedName) =>
         familyState.members.find((m) => m.userId === userId)?.name || savedName || '가족',
@@ -149,7 +196,19 @@ export function FamilyDataProvider({
         await repository.leaveFamily();
         await waitForFamily((id) => id === null);
       },
-      addIngredient: (name) => mutate(() => repository.addIngredient(name)),
+      addIngredient: async (rawName) => {
+        const name = normalizeShoppingName(rawName);
+        if (!name) return;
+        // 가족의 재료는 같은 이름(공백 제거·소문자)이 있으면 다시 넣지 않는다.
+        const key = shoppingNameKey(name);
+        if (
+          familyState.familyId &&
+          familyState.ingredients.some((item) => shoppingNameKey(item.name) === key)
+        ) {
+          return;
+        }
+        await mutate(() => repository.addIngredient(name));
+      },
       removeIngredient: (id) => mutate(() => repository.removeIngredient(id)),
       // 콜 목록은 구독이 갱신하므로 다시 읽지 않는다.
       sendCall: async (input) => {
@@ -157,6 +216,36 @@ export function FamilyDataProvider({
       },
       respondToCall: async (callId, reply) => {
         await repository.respondToCall(callId, reply);
+      },
+      // 장보기 목록도 구독이 갱신하므로 다시 읽지 않는다.
+      addShoppingItem: async (rawName, fromMenu) => {
+        const name = normalizeShoppingName(rawName);
+        const invalid = validateShoppingName(name);
+        if (invalid) return invalid;
+        if (planShoppingAdditions(familyState.shoppingItems, [name]).toAdd.length === 0) {
+          return SHOPPING_DUPLICATE_MESSAGE;
+        }
+        await repository.addShoppingItems([{ name, ...(fromMenu ? { fromMenu } : {}) }]);
+        return null;
+      },
+      addShoppingItems: async (names, fromMenu) => {
+        const { toAdd, skipped } = planShoppingAdditions(familyState.shoppingItems, names);
+        await repository.addShoppingItems(toAdd.map((name) => ({ name, fromMenu })));
+        return { added: toAdd.length, skipped };
+      },
+      setShoppingItemDone: (itemId, done) => repository.setShoppingItemDone(itemId, done),
+      removeShoppingItem: (itemId) => repository.removeShoppingItems([itemId]),
+      clearDoneShoppingItems: () =>
+        repository.removeShoppingItems(
+          familyState.shoppingItems.filter((item) => item.done).map((item) => item.id),
+        ),
+      moveShoppingItemsToFridge: (itemIds) => {
+        const wanted = new Set(itemIds);
+        return repository.moveShoppingItemsToFridge(
+          familyState.shoppingItems
+            .filter((item) => wanted.has(item.id))
+            .map(({ id, name }) => ({ id, name })),
+        );
       },
       resetAll,
     };

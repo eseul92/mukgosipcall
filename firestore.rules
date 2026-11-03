@@ -19,7 +19,6 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['photoURL', 'fcmTokens']);
       allow delete: if false;
-      
     }
 
     match /families/{familyId} {
@@ -40,6 +39,24 @@ service cloud.firestore {
         allow create: if isMember(familyId)
           && request.resource.data.addedBy == request.auth.uid;
         allow update, delete: if isMember(familyId);
+      }
+
+      match /shoppingItems/{id} {
+        allow read: if isMember(familyId);
+        allow create: if isMember(familyId)
+          && request.resource.data.keys().hasOnly(['name', 'addedBy', 'done', 'fromMenu', 'createdAt'])
+          && request.resource.data.addedBy == request.auth.uid
+          && request.resource.data.name is string
+          && request.resource.data.name.size() >= 1
+          && request.resource.data.name.size() <= 20
+          && request.resource.data.done == false
+          && request.resource.data.createdAt == request.time;
+        allow update: if isMember(familyId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['done', 'doneBy'])
+          && request.resource.data.done is bool
+          && request.resource.data.doneBy == request.auth.uid;
+        allow delete: if isMember(familyId);
       }
 
       match /calls/{callId} {

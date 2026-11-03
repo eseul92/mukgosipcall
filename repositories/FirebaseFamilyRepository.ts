@@ -2,7 +2,9 @@ import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
+  getDocs,
   getFirestore,
   limit,
   onSnapshot,
@@ -10,22 +12,28 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
+  writeBatch,
 } from '@react-native-firebase/firestore';
 import { callFunction } from '../services/callable';
 import { startTracked } from '../services/listenerRegistry';
+import { shoppingNameKey } from '../utils/shopping';
 import type {
   Call,
   CallSource,
   Family,
+  Ingredient,
   MealType,
   Member,
   Reply,
   Response,
+  ShoppingItem,
   User,
 } from '../types/models';
 import { DummyFamilyRepository } from './DummyFamilyRepository';
 import type {
   FamilyState,
+  NewShoppingItem,
   RealtimeFamilyRepository,
   SendCallInput,
 } from './FamilyRepository';
@@ -34,7 +42,19 @@ type Unsubscribe = () => void;
 
 const noop: Unsubscribe = () => {};
 
-const EMPTY_STATE: FamilyState = { familyId: null, family: null, members: [], calls: [] };
+const EMPTY_STATE: FamilyState = {
+  familyId: null,
+  family: null,
+  members: [],
+  calls: [],
+  ingredients: [],
+  shoppingItems: [],
+  shoppingStatus: 'ready',
+};
+
+// writeBatch는 한 번에 500개까지 쓸 수 있다. 항목당 쓰기 수에 맞춰 나눠서 보낸다.
+const DELETE_CHUNK = 400;
+const MOVE_CHUNK = 200;
 
 // 화면에 보여 줄 최근 콜 개수. 콜마다 응답을 따로 구독하므로 너무 키우지 않는다.
 const CALL_LIMIT = 30;
@@ -94,6 +114,35 @@ function toCall(familyId: string, id: string, data: Record<string, unknown> | un
     createdAt: toMillis(data?.createdAt),
     responses: [],
   };
+}
+
+function toIngredient(id: string, data: Record<string, unknown> | undefined): Ingredient {
+  return {
+    id,
+    name: text(data?.name),
+    addedBy: text(data?.addedBy),
+    createdAt: toMillis(data?.createdAt),
+  };
+}
+
+function toShoppingItem(id: string, data: Record<string, unknown> | undefined): ShoppingItem {
+  const doneBy = text(data?.doneBy);
+  const fromMenu = text(data?.fromMenu);
+  return {
+    id,
+    name: text(data?.name),
+    addedBy: text(data?.addedBy),
+    done: data?.done === true,
+    ...(doneBy ? { doneBy } : {}),
+    ...(fromMenu ? { fromMenu } : {}),
+    createdAt: toMillis(data?.createdAt),
+  };
+}
+
+function chunk<T>(list: T[], size: number): T[][] {
+  const parts: T[][] = [];
+  for (let i = 0; i < list.length; i += size) parts.push(list.slice(i, i + size));
+  return parts;
 }
 
 function toResponse(userId: string, data: Record<string, unknown>): Response | null {
@@ -158,9 +207,54 @@ function watchCalls(familyId: string, onChange: (calls: Call[]) => void): Unsubs
   };
 }
 
+// 냉장고 재료는 만든 순서(오래된 것부터)로 구독한다.
+function watchIngredients(
+  familyId: string,
+  onChange: (patch: Pick<FamilyState, 'ingredients'>) => void,
+): Unsubscribe {
+  return onSnapshot(
+    query(collection(getFirestore(), 'families', familyId, 'ingredients'), orderBy('createdAt', 'asc')),
+    (snap) =>
+      onChange({
+        ingredients: snap.docs.map((d) =>
+          toIngredient(d.id, d.data({ serverTimestamps: 'estimate' })),
+        ),
+      }),
+    (e) => console.warn('재료를 읽지 못했어요', e),
+  );
+}
+
+// 장보기 목록은 만든 순서(오래된 것부터)로 구독한다.
+function watchShopping(
+  familyId: string,
+  onChange: (patch: Pick<FamilyState, 'shoppingStatus'> & Partial<FamilyState>) => void,
+): Unsubscribe {
+  return onSnapshot(
+    query(collection(getFirestore(), 'families', familyId, 'shoppingItems'), orderBy('createdAt', 'asc')),
+    (snap) =>
+      onChange({
+        shoppingItems: snap.docs.map((d) =>
+          toShoppingItem(d.id, d.data({ serverTimestamps: 'estimate' })),
+        ),
+        shoppingStatus: 'ready',
+      }),
+    (e) => {
+      console.warn('장보기 목록을 읽지 못했어요', e);
+      onChange({ shoppingStatus: 'error' });
+    },
+  );
+}
+
 function watchFamily(
   familyId: string,
-  onChange: (patch: Partial<Pick<FamilyState, 'family' | 'members' | 'calls'>>) => void,
+  onChange: (
+    patch: Partial<
+      Pick<
+        FamilyState,
+        'family' | 'members' | 'calls' | 'ingredients' | 'shoppingItems' | 'shoppingStatus'
+      >
+    >,
+  ) => void,
 ): Unsubscribe {
   const db = getFirestore();
   const warn = (e: unknown) => console.warn('가족 정보를 읽지 못했어요', e);
@@ -177,16 +271,20 @@ function watchFamily(
     warn,
   );
   const stopCalls = watchCalls(familyId, (calls) => onChange({ calls }));
+  const stopIngredients = watchIngredients(familyId, onChange);
+  const stopShopping = watchShopping(familyId, onChange);
 
   return () => {
     stopFamily();
     stopMembers();
     stopCalls();
+    stopIngredients();
+    stopShopping();
   };
 }
 
-// 가족 기능(생성/참여/탈퇴/구독)과 콜을 Firebase로 연결한다.
-// 재료는 아직 더미 구현에 맡긴다.
+// 가족 기능(생성/참여/탈퇴/구독), 콜, 장보기, 재료를 Firebase로 연결한다.
+// 가족이 없는 사용자(게스트 포함)의 재료만 더미 구현(메모리)에 맡긴다.
 export class FirebaseFamilyRepository implements RealtimeFamilyRepository {
   private dummy = new DummyFamilyRepository();
   /** 마지막으로 구독이 알려 준 familyId */
@@ -239,7 +337,15 @@ export class FirebaseFamilyRepository implements RealtimeFamilyRepository {
 
         stopFamily();
         stopFamily = noop;
-        publish({ familyId, family: null, members: [], calls: [] });
+        publish({
+          familyId,
+          family: null,
+          members: [],
+          calls: [],
+          ingredients: [],
+          shoppingItems: [],
+          shoppingStatus: 'loading',
+        });
         if (familyId) {
           stopFamily = watchFamily(familyId, (patch) => publish({ ...state, ...patch }));
         }
@@ -318,17 +424,106 @@ export class FirebaseFamilyRepository implements RealtimeFamilyRepository {
     });
   }
 
-  // 아래는 아직 더미 그대로다.
+  private requireShoppingContext() {
+    const familyId = this.familyId;
+    const uid = getAuth().currentUser?.uid;
+    if (!familyId || !uid) throw new Error('가족과 연결해야 장보기를 쓸 수 있어요');
+    return { familyId, uid };
+  }
 
+  // 목록은 구독으로 갱신된다. createdAt은 반드시 서버 시각, 선택 필드는 값이 있을 때만 넣는다.
+  async addShoppingItems(items: NewShoppingItem[]) {
+    const { familyId, uid } = this.requireShoppingContext();
+    if (items.length === 0) return;
+
+    const db = getFirestore();
+    const batch = writeBatch(db);
+    for (const item of items) {
+      batch.set(doc(collection(db, 'families', familyId, 'shoppingItems')), {
+        name: item.name,
+        addedBy: uid,
+        done: false,
+        ...(item.fromMenu ? { fromMenu: item.fromMenu } : {}),
+        createdAt: serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  // 규칙상 체크·해제는 done과 doneBy만 바꿀 수 있다.
+  async setShoppingItemDone(itemId: string, done: boolean) {
+    const { familyId, uid } = this.requireShoppingContext();
+    await updateDoc(doc(getFirestore(), 'families', familyId, 'shoppingItems', itemId), {
+      done,
+      doneBy: uid,
+    });
+  }
+
+  async removeShoppingItems(itemIds: string[]) {
+    const { familyId } = this.requireShoppingContext();
+    const db = getFirestore();
+    for (const part of chunk(itemIds, DELETE_CHUNK)) {
+      const batch = writeBatch(db);
+      for (const id of part) batch.delete(doc(db, 'families', familyId, 'shoppingItems', id));
+      await batch.commit();
+    }
+  }
+
+  async moveShoppingItemsToFridge(items: { id: string; name: string }[]) {
+    const { familyId, uid } = this.requireShoppingContext();
+    if (items.length === 0) return 0;
+
+    const db = getFirestore();
+    // 같은 이름의 재료가 이미 있으면 재료는 더하지 않는다.
+    const existing = await getDocs(collection(db, 'families', familyId, 'ingredients'));
+    const known = new Set(existing.docs.map((d) => shoppingNameKey(text(d.data().name))));
+
+    let added = 0;
+    for (const part of chunk(items, MOVE_CHUNK)) {
+      const batch = writeBatch(db);
+      let addedInPart = 0;
+      for (const item of part) {
+        const key = shoppingNameKey(item.name);
+        if (!known.has(key)) {
+          known.add(key);
+          addedInPart += 1;
+          batch.set(doc(collection(db, 'families', familyId, 'ingredients')), {
+            name: item.name,
+            addedBy: uid,
+            createdAt: serverTimestamp(),
+          });
+        }
+        batch.delete(doc(db, 'families', familyId, 'shoppingItems', item.id));
+      }
+      await batch.commit();
+      added += addedInPart;
+    }
+    return added;
+  }
+
+  // 가족이 있으면 재료는 구독(FamilyState.ingredients)으로 읽는다.
+  // 아래 목록은 가족이 없는 사용자의 메모리 재료다.
   listIngredients() {
     return this.dummy.listIngredients();
   }
 
-  addIngredient(name: string) {
-    return this.dummy.addIngredient(name);
+  async addIngredient(name: string) {
+    const familyId = this.familyId;
+    const uid = getAuth().currentUser?.uid;
+    if (!familyId || !uid) return this.dummy.addIngredient(name);
+
+    const ref = await addDoc(collection(getFirestore(), 'families', familyId, 'ingredients'), {
+      name,
+      addedBy: uid,
+      createdAt: serverTimestamp(),
+    });
+    return { id: ref.id, name, addedBy: uid, createdAt: Date.now() };
   }
 
-  removeIngredient(ingredientId: string) {
-    return this.dummy.removeIngredient(ingredientId);
+  async removeIngredient(ingredientId: string) {
+    const familyId = this.familyId;
+    if (!familyId) return this.dummy.removeIngredient(ingredientId);
+
+    await deleteDoc(doc(getFirestore(), 'families', familyId, 'ingredients', ingredientId));
   }
 }

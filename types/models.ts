@@ -58,3 +58,17 @@ export interface Call {
   createdAt: number;
   responses: Response[];
 }
+
+export interface ShoppingItem {
+  id: string;
+  name: string;
+  addedBy: string;
+  done: boolean;
+  /** 마지막으로 체크·해제한 사람 */
+  doneBy?: string;
+  /** 추천 카드에서 담았을 때의 요리 이름 */
+  fromMenu?: string;
+  createdAt: number;
+}
+
+export type ShoppingStatus = 'loading' | 'ready' | 'error';

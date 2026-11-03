@@ -8,6 +8,7 @@ import IngredientSection from '../components/IngredientSection';
 import LoginPromptSheet from '../components/LoginPromptSheet';
 import Toast from '../components/Toast';
 import { REPLY_LABELS } from '../constants/call';
+import { SHOPPING_NAME_MAX, SHOPPING_WRITE_FAILED_MESSAGE } from '../constants/shopping';
 import { useAuth } from '../context/AuthContext';
 import { useFamilyData } from '../context/FamilyDataContext';
 import { usePush } from '../context/PushContext';
@@ -45,6 +46,13 @@ export default function HomeScreen() {
   const { error: loginError, clearError, onGoogle } = useLoginHandlers((notice) =>
     showToast(notice, 4000),
   );
+
+  // 재료는 저장이 끝나면 구독이 목록을 갱신한다. 실패하면 알려 준다.
+  const saveIngredient = (work: () => Promise<void>) =>
+    work().catch((e) => {
+      console.warn('재료를 저장하지 못했어요', e);
+      showToast(SHOPPING_WRITE_FAILED_MESSAGE, 3000);
+    });
 
   const run = (action: Action, callId?: string) => {
     if (isGuest) {
@@ -127,8 +135,9 @@ export default function HomeScreen() {
 
         <IngredientSection
           ingredients={ingredients}
-          onAdd={addIngredient}
-          onRemove={removeIngredient}
+          onAdd={(name) => saveIngredient(() => addIngredient(name))}
+          onRemove={(id) => saveIngredient(() => removeIngredient(id))}
+          nameMax={SHOPPING_NAME_MAX}
         />
 
         <Pressable

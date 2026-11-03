@@ -7,9 +7,10 @@ type Props = {
   ingredients: Ingredient[];
   onAdd: (name: string) => void;
   onRemove: (ingredientId: string) => void;
+  nameMax?: number;
 };
 
-export default function IngredientSection({ ingredients, onAdd, onRemove }: Props) {
+export default function IngredientSection({ ingredients, onAdd, onRemove, nameMax }: Props) {
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
   // 닫히는 애니메이션 동안에도 재료 이름이 남도록, 대상은 비우지 않고 표시 여부만 끈다.
@@ -62,6 +63,7 @@ export default function IngredientSection({ ingredients, onAdd, onRemove }: Prop
             placeholderTextColor="#9CA3AF"
             returnKeyType="done"
             blurOnSubmit={false}
+            maxLength={nameMax}
             style={styles.input}
           />
           <Pressable
